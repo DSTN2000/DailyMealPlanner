@@ -136,10 +136,37 @@ public class MainWindow
                 {
                     var products = await CatalogService.GetProductsByCategoryAsync(categoryName);
 
-                    // Create virtualized ListView
-                    var listView = CreateProductListView(products);
+                    // Group by subcategories (labels)
+                    var grouped = GroupBySubcategories(products);
 
-                    expander.Child = listView;
+                    // Create content box
+                    var contentBox = Box.New(Orientation.Vertical, 5);
+
+                    if (grouped.Count > 1)
+                    {
+                        // Multiple subcategories - create nested expanders
+                        foreach (var (subcategory, subcategoryProducts) in grouped)
+                        {
+                            var subcategoryExpander = CreateSubcategoryExpander(subcategory, subcategoryProducts);
+                            contentBox.Append(subcategoryExpander);
+                        }
+
+                        var scrolledWindow = ScrolledWindow.New();
+                        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+                        scrolledWindow.SetSizeRequest(-1, 400);
+                        scrolledWindow.Child = contentBox;
+
+                        expander.Child = scrolledWindow;
+                    }
+                    else
+                    {
+                        // Single subcategory or no subcategories - show products directly
+                        var listView = CreateProductListView(products);
+                        expander.Child = listView;
+                    }
+
+                    Logger.Instance.Information("Loaded {Count} products in {SubcategoryCount} subcategories for {Category}",
+                        products.Count, grouped.Count, categoryName);
                 }
                 catch (Exception ex)
                 {
@@ -151,6 +178,61 @@ public class MainWindow
                 {
                     isLoading = false;
                 }
+            }
+        };
+
+        return expander;
+    }
+
+    private Dictionary<string, List<Product>> GroupBySubcategories(List<Product> products)
+    {
+        var grouped = new Dictionary<string, List<Product>>();
+
+        foreach (var product in products)
+        {
+            if (product.Labels.Count > 0)
+            {
+                // Use first label as subcategory
+                var subcategory = product.Labels[0];
+                if (!grouped.ContainsKey(subcategory))
+                {
+                    grouped[subcategory] = new List<Product>();
+                }
+                grouped[subcategory].Add(product);
+            }
+            else
+            {
+                // No labels - use "other"
+                if (!grouped.ContainsKey("other"))
+                {
+                    grouped["other"] = new List<Product>();
+                }
+                grouped["other"].Add(product);
+            }
+        }
+
+        return grouped;
+    }
+
+    private Expander CreateSubcategoryExpander(string subcategoryName, List<Product> products)
+    {
+        var expander = Expander.New($"{subcategoryName} ({products.Count} items)");
+        expander.MarginTop = 3;
+        expander.MarginBottom = 3;
+        expander.MarginStart = 20; // Indent subcategories
+
+        var isLoaded = false;
+
+        expander.OnNotify += (sender, args) =>
+        {
+            if (args.Pspec.GetName() == "expanded" && expander.Expanded && !isLoaded)
+            {
+                isLoaded = true;
+                Logger.Instance.Information("Creating virtualized list for subcategory: {Subcategory} ({Count} products)",
+                    subcategoryName, products.Count);
+
+                var listView = CreateProductListView(products);
+                expander.Child = listView;
             }
         };
 
