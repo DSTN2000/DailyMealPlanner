@@ -18,7 +18,42 @@ public class MainWindow
         _window.Title = "Daily Meal Planner";
         _window.SetDefaultSize(900, 600);
 
+        LoadCustomCSS();
         BuildUI();
+    }
+
+    private void LoadCustomCSS()
+    {
+        var cssProvider = CssProvider.New();
+        var css = @"
+            .card {
+                background-color: @theme_bg_color;
+                border-radius: 8px;
+                border: 1px solid alpha(@theme_fg_color, 0.15);
+                transition: all 200ms ease-in-out;
+            }
+
+            .card:hover {
+                background-color: alpha(@theme_selected_bg_color, 0.1);
+                box-shadow: 0 2px 4px alpha(black, 0.1);
+            }
+
+            listview {
+                background-color: transparent;
+            }
+
+            scrolledwindow {
+                background-color: transparent;
+            }
+        ";
+
+        cssProvider.LoadFromData(css, -1);
+
+        Gtk.StyleContext.AddProviderForDisplay(
+            Gdk.Display.GetDefault()!,
+            cssProvider,
+            800 // GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+        );
     }
 
     public void Show()
@@ -30,16 +65,21 @@ public class MainWindow
 
     private void BuildUI()
     {
-        var mainBox = Box.New(Orientation.Vertical, 10);
-        mainBox.MarginTop = 10;
-        mainBox.MarginBottom = 10;
-        mainBox.MarginStart = 10;
-        mainBox.MarginEnd = 10;
+        // Use Paned for proportional split
+        var paned = Paned.New(Orientation.Horizontal);
+
+        // Left panel: Product tree view
+        var leftPanel = Box.New(Orientation.Vertical, 10);
+        leftPanel.MarginTop = 10;
+        leftPanel.MarginBottom = 10;
+        leftPanel.MarginStart = 10;
+        leftPanel.MarginEnd = 5;
 
         // Header
         var headerLabel = Label.New("Food Catalog");
-        headerLabel.AddCssClass("title-1");
-        mainBox.Append(headerLabel);
+        headerLabel.AddCssClass("title-2");
+        headerLabel.Halign = Align.Start;
+        leftPanel.Append(headerLabel);
 
         // Content area (will be updated after data loads)
         _contentBox = Box.New(Orientation.Vertical, 5);
@@ -48,9 +88,35 @@ public class MainWindow
         var loadingLabel = Label.New("Loading categories...");
         _contentBox.Append(loadingLabel);
 
-        mainBox.Append(_contentBox);
+        leftPanel.Append(_contentBox);
 
-        _window.Child = mainBox;
+        // Right panel: Empty for now
+        var rightPanel = Box.New(Orientation.Vertical, 0);
+        rightPanel.MarginTop = 10;
+        rightPanel.MarginBottom = 10;
+        rightPanel.MarginStart = 5;
+        rightPanel.MarginEnd = 10;
+
+        var placeholderLabel = Label.New("Select a product...");
+        placeholderLabel.AddCssClass("dim-label");
+        placeholderLabel.Valign = Align.Center;
+        placeholderLabel.Halign = Align.Center;
+        rightPanel.Append(placeholderLabel);
+
+        // Set start child (left - 1/3)
+        paned.SetStartChild(leftPanel);
+        paned.SetResizeStartChild(false);
+        paned.SetShrinkStartChild(false);
+
+        // Set end child (right - 2/3)
+        paned.SetEndChild(rightPanel);
+        paned.SetResizeEndChild(true);
+        paned.SetShrinkEndChild(false);
+
+        // Set initial position to 1/3 of window width (300px as default for 900px window)
+        paned.SetPosition(300);
+
+        _window.Child = paned;
     }
 
     private async void LoadDataAsync()
@@ -245,7 +311,7 @@ public class MainWindow
         var stringList = Gtk.StringList.New(null);
         foreach (var product in products)
         {
-            // Store product data as JSON string (simple approach)
+            // Store product data as JSON string
             var productData = $"{product.Name}|{product.Calories}|{product.Protein}|{product.TotalFat}|{product.Carbohydrates}";
             stringList.Append(productData);
         }
@@ -288,10 +354,11 @@ public class MainWindow
         // Create ListView with virtualization
         var listView = ListView.New(selectionModel, factory);
 
-        // Wrap in ScrolledWindow
+        // Wrap in ScrolledWindow with scrollbar on the left
         var scrolledWindow = ScrolledWindow.New();
         scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
         scrolledWindow.SetSizeRequest(-1, 400); // Max height
+        scrolledWindow.SetPlacement(CornerType.TopRight); // Place scrollbar on the left
         scrolledWindow.Child = listView;
 
         return scrolledWindow;
@@ -299,84 +366,36 @@ public class MainWindow
 
     private Box CreateEmptyProductRow()
     {
-        var row = Box.New(Orientation.Horizontal, 10);
-        row.MarginStart = 10;
-        row.MarginEnd = 10;
-        row.MarginTop = 3;
-        row.MarginBottom = 3;
+        // Create card container
+        var card = Box.New(Orientation.Vertical, 0);
+        card.MarginStart = 10;
+        card.MarginEnd = 30; // Extra margin for scrollbar space
+        card.MarginTop = 4;
+        card.MarginBottom = 4;
 
-        // Product name
+        // Add CSS classes for card styling
+        card.AddCssClass("card");
+
+        // Product name label
         var nameLabel = Label.New("");
         nameLabel.Halign = Align.Start;
-        nameLabel.Hexpand = true;
         nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
-        row.Append(nameLabel);
+        nameLabel.MarginStart = 12;
+        nameLabel.MarginEnd = 12;
+        nameLabel.MarginTop = 8;
+        nameLabel.MarginBottom = 8;
 
-        // Nutritional info box
-        var nutritionBox = Box.New(Orientation.Horizontal, 15);
+        card.Append(nameLabel);
 
-        var caloriesLabel = Label.New("");
-        caloriesLabel.SetSizeRequest(80, -1);
-        nutritionBox.Append(caloriesLabel);
-
-        var proteinLabel = Label.New("");
-        proteinLabel.SetSizeRequest(60, -1);
-        nutritionBox.Append(proteinLabel);
-
-        var fatLabel = Label.New("");
-        fatLabel.SetSizeRequest(60, -1);
-        nutritionBox.Append(fatLabel);
-
-        var carbsLabel = Label.New("");
-        carbsLabel.SetSizeRequest(60, -1);
-        nutritionBox.Append(carbsLabel);
-
-        row.Append(nutritionBox);
-
-        return row;
+        return card;
     }
 
-    private void UpdateProductRow(Box row, string name, double calories, double protein, double fat, double carbs)
+    private void UpdateProductRow(Box card, string name, double calories, double protein, double fat, double carbs)
     {
-        var nameLabel = row.GetFirstChild() as Label;
+        var nameLabel = card.GetFirstChild() as Label;
         if (nameLabel != null)
         {
             nameLabel.SetText(name);
-        }
-
-        var nutritionBox = row.GetLastChild() as Box;
-        if (nutritionBox != null)
-        {
-            var child = nutritionBox.GetFirstChild();
-            int index = 0;
-
-            while (child != null)
-            {
-                if (child is Label label)
-                {
-                    switch (index)
-                    {
-                        case 0: // Calories
-                            label.SetText(calories > 0 ? $"{calories:F0} kcal" : "");
-                            label.AddCssClass("dim-label");
-                            break;
-                        case 1: // Protein
-                            label.SetText(protein > 0 ? $"P: {protein:F1}g" : "");
-                            label.AddCssClass("dim-label");
-                            break;
-                        case 2: // Fat
-                            label.SetText(fat > 0 ? $"F: {fat:F1}g" : "");
-                            label.AddCssClass("dim-label");
-                            break;
-                        case 3: // Carbs
-                            label.SetText(carbs > 0 ? $"C: {carbs:F1}g" : "");
-                            label.AddCssClass("dim-label");
-                            break;
-                    }
-                    index++;
-                }
-                child = child.GetNextSibling();
-            }
         }
     }
 
