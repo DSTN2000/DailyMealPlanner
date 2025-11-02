@@ -5,6 +5,7 @@ using Lab4.Models;
 public class ProductViewModel
 {
     public string Name { get; set; } = string.Empty;
+    public List<string> Labels { get; set; } = new();
     public double Calories { get; set; }
     public double Protein { get; set; }
     public double TotalFat { get; set; }
@@ -20,6 +21,7 @@ public class ProductViewModel
     public ProductViewModel(Product product)
     {
         Name = product.Name;
+        Labels = product.Labels;
         Calories = product.Calories;
         Protein = product.Protein;
         TotalFat = product.TotalFat;

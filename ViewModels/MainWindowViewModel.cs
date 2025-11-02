@@ -53,4 +53,11 @@ public class MainWindowViewModel : INotifyPropertyChanged
             IsLoading = false;
         }
     }
+
+    public async Task<List<ProductViewModel>> LoadProductsForCategoryAsync(string categoryName)
+    {
+        Logger.Instance.Information("Loading products for category: {Category}", categoryName);
+        var products = await CatalogService.GetProductsByCategoryAsync(categoryName);
+        return products.Select(p => new ProductViewModel(p)).ToList();
+    }
 }

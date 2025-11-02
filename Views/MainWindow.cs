@@ -1,7 +1,6 @@
 namespace Lab4.Views;
 
 using Gtk;
-using Lab4.Models;
 using Lab4.Services;
 using Lab4.ViewModels;
 
@@ -19,7 +18,21 @@ public class MainWindow
         _window.SetDefaultSize(900, 600);
 
         LoadCustomCSS();
+        SetupActions();
         BuildUI();
+    }
+
+    private void SetupActions()
+    {
+        // Create settings action
+        var settingsAction = Gio.SimpleAction.New("settings", null);
+        settingsAction.OnActivate += (sender, args) =>
+        {
+            Logger.Instance.Information("Settings action activated");
+            // TODO: Open settings dialog
+        };
+
+        _window.AddAction(settingsAction);
     }
 
     private void LoadCustomCSS()
@@ -65,6 +78,13 @@ public class MainWindow
 
     private void BuildUI()
     {
+        // Main container box
+        var mainBox = Box.New(Orientation.Vertical, 0);
+
+        // Create menubar
+        var menuBar = CreateMenuBar();
+        mainBox.Append(menuBar);
+
         // Use Paned for proportional split
         var paned = Paned.New(Orientation.Horizontal);
 
@@ -116,7 +136,25 @@ public class MainWindow
         // Set initial position to 1/3 of window width (300px as default for 900px window)
         paned.SetPosition(300);
 
-        _window.Child = paned;
+        mainBox.Append(paned);
+        _window.Child = mainBox;
+    }
+
+    private Gtk.PopoverMenuBar CreateMenuBar()
+    {
+        // Create menu model
+        var menu = Gio.Menu.New();
+
+        // Create Preferences submenu
+        var preferencesMenu = Gio.Menu.New();
+        preferencesMenu.Append("Settings", "win.settings");
+
+        menu.AppendSubmenu("Preferences", preferencesMenu);
+
+        // Create PopoverMenuBar from model
+        var menuBar = Gtk.PopoverMenuBar.NewFromModel(menu);
+
+        return menuBar;
     }
 
     private async void LoadDataAsync()
@@ -200,7 +238,7 @@ public class MainWindow
 
                 try
                 {
-                    var products = await CatalogService.GetProductsByCategoryAsync(categoryName);
+                    var products = await _viewModel.LoadProductsForCategoryAsync(categoryName);
 
                     // Group by subcategories (labels)
                     var grouped = GroupBySubcategories(products);
@@ -250,9 +288,9 @@ public class MainWindow
         return expander;
     }
 
-    private Dictionary<string, List<Product>> GroupBySubcategories(List<Product> products)
+    private Dictionary<string, List<ProductViewModel>> GroupBySubcategories(List<ProductViewModel> products)
     {
-        var grouped = new Dictionary<string, List<Product>>();
+        var grouped = new Dictionary<string, List<ProductViewModel>>();
 
         foreach (var product in products)
         {
@@ -262,7 +300,7 @@ public class MainWindow
                 var subcategory = product.Labels[0];
                 if (!grouped.ContainsKey(subcategory))
                 {
-                    grouped[subcategory] = new List<Product>();
+                    grouped[subcategory] = new List<ProductViewModel>();
                 }
                 grouped[subcategory].Add(product);
             }
@@ -271,7 +309,7 @@ public class MainWindow
                 // No labels - use "other"
                 if (!grouped.ContainsKey("other"))
                 {
-                    grouped["other"] = new List<Product>();
+                    grouped["other"] = new List<ProductViewModel>();
                 }
                 grouped["other"].Add(product);
             }
@@ -280,7 +318,7 @@ public class MainWindow
         return grouped;
     }
 
-    private Expander CreateSubcategoryExpander(string subcategoryName, List<Product> products)
+    private Expander CreateSubcategoryExpander(string subcategoryName, List<ProductViewModel> products)
     {
         var expander = Expander.New($"{subcategoryName} ({products.Count} items)");
         expander.MarginTop = 3;
@@ -305,7 +343,7 @@ public class MainWindow
         return expander;
     }
 
-    private ScrolledWindow CreateProductListView(List<Product> products)
+    private ScrolledWindow CreateProductListView(List<ProductViewModel> products)
     {
         // Create StringList as a simple model - we'll display product info in the factory
         var stringList = Gtk.StringList.New(null);
@@ -397,60 +435,5 @@ public class MainWindow
         {
             nameLabel.SetText(name);
         }
-    }
-
-    private Box CreateProductRow(Product product)
-    {
-        var row = Box.New(Orientation.Horizontal, 10);
-        row.MarginStart = 10;
-        row.MarginEnd = 10;
-        row.MarginTop = 3;
-        row.MarginBottom = 3;
-
-        // Product name
-        var nameLabel = Label.New(product.Name);
-        nameLabel.Halign = Align.Start;
-        nameLabel.Hexpand = true;
-        nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
-        row.Append(nameLabel);
-
-        // Nutritional info
-        var nutritionBox = Box.New(Orientation.Horizontal, 15);
-
-        if (product.Calories > 0)
-        {
-            var caloriesLabel = Label.New($"{product.Calories:F0} kcal");
-            caloriesLabel.AddCssClass("dim-label");
-            caloriesLabel.SetSizeRequest(80, -1);
-            nutritionBox.Append(caloriesLabel);
-        }
-
-        if (product.Protein > 0)
-        {
-            var proteinLabel = Label.New($"P: {product.Protein:F1}g");
-            proteinLabel.AddCssClass("dim-label");
-            proteinLabel.SetSizeRequest(60, -1);
-            nutritionBox.Append(proteinLabel);
-        }
-
-        if (product.TotalFat > 0)
-        {
-            var fatLabel = Label.New($"F: {product.TotalFat:F1}g");
-            fatLabel.AddCssClass("dim-label");
-            fatLabel.SetSizeRequest(60, -1);
-            nutritionBox.Append(fatLabel);
-        }
-
-        if (product.Carbohydrates > 0)
-        {
-            var carbsLabel = Label.New($"C: {product.Carbohydrates:F1}g");
-            carbsLabel.AddCssClass("dim-label");
-            carbsLabel.SetSizeRequest(60, -1);
-            nutritionBox.Append(carbsLabel);
-        }
-
-        row.Append(nutritionBox);
-
-        return row;
     }
 }
