@@ -1,11 +1,13 @@
 namespace Lab4.Views;
 
 using Gtk;
-using Lab4.Services;
+using Lab4.ViewModels;
+using static Lab4.ViewModels.PreferencesViewModel;
 
 public class PreferencesDialog
 {
     private readonly Window _dialog;
+    private readonly PreferencesViewModel _viewModel;
 
     // Anthropometry fields
     private Entry _weightEntry = null!;
@@ -28,8 +30,10 @@ public class PreferencesDialog
     private Label _fatLabel = null!;
     private Label _carbsLabel = null!;
 
-    public PreferencesDialog(Window parent)
+    public PreferencesDialog(Window parent, MainWindowViewModel mainViewModel)
     {
+        _viewModel = new PreferencesViewModel(mainViewModel.CurrentUser);
+
         _dialog = Window.New();
         _dialog.Title = "Preferences";
         _dialog.SetDefaultSize(350, 600);
@@ -97,24 +101,24 @@ public class PreferencesDialog
         section.Append(titleLabel);
 
         // Weight
-        section.Append(CreateLabeledEntry("Weight:", "75", "kg", out _weightEntry));
+        section.Append(CreateLabeledEntry("Weight:", _viewModel.User.Weight.ToString(), "kg", out _weightEntry));
         _weightEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // Height
-        section.Append(CreateLabeledEntry("Height:", "170", "cm", out _heightEntry));
+        section.Append(CreateLabeledEntry("Height:", _viewModel.User.Height.ToString(), "cm", out _heightEntry));
         _heightEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // Age
-        section.Append(CreateLabeledEntry("Age:", "30", "years", out _ageEntry));
+        section.Append(CreateLabeledEntry("Age:", _viewModel.User.Age.ToString(), "years", out _ageEntry));
         _ageEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // BMI (read-only)
         section.Append(CreateLabeledValue("BMI:", "", out _bmiLabel));
 
         // Connect calculation
-        _weightEntry.OnChanged += (s, e) => CalculateAll();
-        _heightEntry.OnChanged += (s, e) => CalculateAll();
-        _ageEntry.OnChanged += (s, e) => CalculateAll();
+        _weightEntry.OnChanged += (s, e) => UpdateCalculatedValues();
+        _heightEntry.OnChanged += (s, e) => UpdateCalculatedValues();
+        _ageEntry.OnChanged += (s, e) => UpdateCalculatedValues();
 
         return section;
     }
@@ -129,28 +133,24 @@ public class PreferencesDialog
         titleLabel.AddCssClass("heading");
         section.Append(titleLabel);
 
-        // Radio buttons
-        _sedentaryRadio = CheckButton.NewWithLabel("Sedentary lifestyle");
+        // Radio buttons - create using factory
+        _sedentaryRadio = CreateActivityRadioButton("Sedentary lifestyle", ActivityLevelSedentary, null);
         section.Append(_sedentaryRadio);
 
-        _moderateRadio = CheckButton.NewWithLabel("Moderate activity");
-        _moderateRadio.SetGroup(_sedentaryRadio);
-        _moderateRadio.Active = true; // Default selection
+        _moderateRadio = CreateActivityRadioButton("Moderate activity", ActivityLevelModerate, _sedentaryRadio);
         section.Append(_moderateRadio);
 
-        _mediumRadio = CheckButton.NewWithLabel("Medium activity");
-        _mediumRadio.SetGroup(_sedentaryRadio);
+        _mediumRadio = CreateActivityRadioButton("Medium activity", ActivityLevelMedium, _sedentaryRadio);
         section.Append(_mediumRadio);
 
-        _highRadio = CheckButton.NewWithLabel("High activity");
-        _highRadio.SetGroup(_sedentaryRadio);
+        _highRadio = CreateActivityRadioButton("High activity", ActivityLevelHigh, _sedentaryRadio);
         section.Append(_highRadio);
 
         // Connect to calculation
-        _sedentaryRadio.OnToggled += (s, e) => CalculateAll();
-        _moderateRadio.OnToggled += (s, e) => CalculateAll();
-        _mediumRadio.OnToggled += (s, e) => CalculateAll();
-        _highRadio.OnToggled += (s, e) => CalculateAll();
+        _sedentaryRadio.OnToggled += (s, e) => UpdateCalculatedValues();
+        _moderateRadio.OnToggled += (s, e) => UpdateCalculatedValues();
+        _mediumRadio.OnToggled += (s, e) => UpdateCalculatedValues();
+        _highRadio.OnToggled += (s, e) => UpdateCalculatedValues();
 
         return section;
     }
@@ -187,6 +187,20 @@ public class PreferencesDialog
         section.Append(CreateLabeledValue("Carbohydrates:", "g", out _carbsLabel));
 
         return section;
+    }
+
+    private CheckButton CreateActivityRadioButton(string label, int activityLevelValue, CheckButton? group)
+    {
+        var radioButton = CheckButton.NewWithLabel(label);
+
+        if (group != null)
+        {
+            radioButton.SetGroup(group);
+        }
+
+        radioButton.Active = _viewModel.IsActivityLevel(activityLevelValue);
+
+        return radioButton;
     }
 
     private Box CreateLabeledEntry(string labelText, string defaultValue, string unit, out Entry entry)
@@ -238,7 +252,7 @@ public class PreferencesDialog
         return row;
     }
 
-    private void CalculateAll()
+    private void UpdateCalculatedValues()
     {
         var weightText = _weightEntry.GetBuffer().GetText();
         var heightText = _heightEntry.GetBuffer().GetText();
@@ -248,87 +262,56 @@ public class PreferencesDialog
         if (!double.TryParse(heightText, out var height) || height <= 0) return;
         if (!double.TryParse(ageText, out var age) || age <= 0) return;
 
-        // Calculate BMI
-        var heightM = height / 100.0;
-        var bmi = weight / (heightM * heightM);
-        _bmiLabel.SetLabel(bmi.ToString("F1"));
+        var activityLevelIndex = GetSelectedActivityLevelIndex();
 
-        // Determine ARM based on activity level
-        double armValue = 1.2; // Sedentary
-        if (_moderateRadio.Active)
-            armValue = 1.375;
-        else if (_mediumRadio.Active)
-            armValue = 1.55;
-        else if (_highRadio.Active)
-            armValue = 1.725;
+        // Update ViewModel (without validation, just for preview)
+        _viewModel.User.Weight = weight;
+        _viewModel.User.Height = height;
+        _viewModel.User.Age = age;
+        _viewModel.SetActivityLevel(activityLevelIndex);
+        _viewModel.UpdateCalculations();
 
-        _armLabel.SetLabel(armValue.ToString("F3"));
+        // Update UI from ViewModel
+        _bmiLabel.SetLabel(_viewModel.User.BMI.ToString("F1"));
+        _armLabel.SetLabel(_viewModel.User.ARM.ToString("F3"));
+        _caloriesLabel.SetLabel(_viewModel.User.DailyCalories.ToString("F0"));
+        _proteinLabel.SetLabel(_viewModel.User.DailyProtein.ToString("F1"));
+        _fatLabel.SetLabel(_viewModel.User.DailyFat.ToString("F1"));
+        _carbsLabel.SetLabel(_viewModel.User.DailyCarbohydrates.ToString("F1"));
+    }
 
-        // Calculate BMR using Mifflin-St Jeor equation (assuming male for now)
-        // BMR = 10 * weight(kg) + 6.25 * height(cm) - 5 * age(years) + 5
-        var bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
-
-        // Calculate TDEE (Total Daily Energy Expenditure)
-        var tdee = bmr * armValue;
-        _caloriesLabel.SetLabel(tdee.ToString("F0"));
-
-        // Calculate macronutrient distribution (standard ratios)
-        // Protein: 30% of calories, 4 cal/g = tdee * 0.30 / 4
-        var protein = (tdee * 0.30) / 4;
-        _proteinLabel.SetLabel(protein.ToString("F1"));
-
-        // Fat: 25% of calories, 9 cal/g = tdee * 0.25 / 9
-        var fat = (tdee * 0.25) / 9;
-        _fatLabel.SetLabel(fat.ToString("F1"));
-
-        // Carbs: 45% of calories, 4 cal/g = tdee * 0.45 / 4
-        var carbs = (tdee * 0.45) / 4;
-        _carbsLabel.SetLabel(carbs.ToString("F1"));
-
-        Logger.Instance.Information("Calculated: BMI={BMI}, ARM={ARM}, TDEE={TDEE}, Protein={Protein}g, Fat={Fat}g, Carbs={Carbs}g",
-            bmi, armValue, tdee, protein, fat, carbs);
+    private int GetSelectedActivityLevelIndex()
+    {
+        if (_sedentaryRadio.Active) return ActivityLevelSedentary;
+        if (_moderateRadio.Active) return ActivityLevelModerate;
+        if (_mediumRadio.Active) return ActivityLevelMedium;
+        if (_highRadio.Active) return ActivityLevelHigh;
+        return ActivityLevelModerate; // Default to Moderate
     }
 
     private void OnApplyClicked(Button sender, EventArgs args)
-    {
-        if (!ValidateInputs())
-        {
-            return;
-        }
-
-        // If validation passes, close the dialog
-        Logger.Instance.Information("Preferences applied successfully");
-        _dialog.Close();
-    }
-
-    private bool ValidateInputs()
     {
         var weightText = _weightEntry.GetBuffer().GetText();
         var heightText = _heightEntry.GetBuffer().GetText();
         var ageText = _ageEntry.GetBuffer().GetText();
 
-        // Validate weight
-        if (!double.TryParse(weightText, out var weight) || weight <= 0)
+        if (!double.TryParse(weightText, out var weight)) weight = 0;
+        if (!double.TryParse(heightText, out var height)) height = 0;
+        if (!double.TryParse(ageText, out var age)) age = 0;
+
+        var activityLevelIndex = GetSelectedActivityLevelIndex();
+
+        // Validate and apply through ViewModel
+        var result = _viewModel.ValidateAndApply(weight, height, age, activityLevelIndex);
+
+        if (!result.isValid)
         {
-            ShowWarningDialog("Invalid Weight", "Please enter a valid positive number for weight.");
-            return false;
+            ShowWarningDialog(result.errorTitle, result.errorMessage);
+            return;
         }
 
-        // Validate height
-        if (!double.TryParse(heightText, out var height) || height <= 0)
-        {
-            ShowWarningDialog("Invalid Height", "Please enter a valid positive number for height.");
-            return false;
-        }
-
-        // Validate age
-        if (!double.TryParse(ageText, out var age) || age <= 0)
-        {
-            ShowWarningDialog("Invalid Age", "Please enter a valid positive number for age.");
-            return false;
-        }
-
-        return true;
+        // If validation passes, close the dialog
+        _dialog.Close();
     }
 
     private void ShowWarningDialog(string title, string message)
@@ -346,7 +329,7 @@ public class PreferencesDialog
     public void Show()
     {
         // Perform initial calculation with default values
-        CalculateAll();
+        UpdateCalculatedValues();
         _dialog.Show();
     }
 }

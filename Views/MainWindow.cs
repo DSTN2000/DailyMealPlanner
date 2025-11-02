@@ -29,7 +29,7 @@ public class MainWindow
         settingsAction.OnActivate += (sender, args) =>
         {
             Logger.Instance.Information("Opening preferences dialog");
-            var preferencesDialog = new PreferencesDialog(_window);
+            var preferencesDialog = new PreferencesDialog(_window, _viewModel);
             preferencesDialog.Show();
         };
 

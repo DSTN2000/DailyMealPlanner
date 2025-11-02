@@ -1,6 +1,7 @@
 namespace Lab4.ViewModels;
 
 using System.ComponentModel;
+using Lab4.Models;
 using Lab4.Services;
 
 public class MainWindowViewModel : INotifyPropertyChanged
@@ -28,7 +29,14 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public User CurrentUser { get; private set; }
+
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public MainWindowViewModel()
+    {
+        CurrentUser = new User();
+    }
 
     protected virtual void OnPropertyChanged(string propertyName)
     {
