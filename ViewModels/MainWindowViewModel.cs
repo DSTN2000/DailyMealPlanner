@@ -1,15 +1,14 @@
 namespace Lab4.ViewModels;
 
 using System.ComponentModel;
-using Lab4.Models;
 using Lab4.Services;
 
 public class MainWindowViewModel : INotifyPropertyChanged
 {
-    private List<CategoryGroup> _categories = new();
+    private List<string> _categories = new();
     private bool _isLoading;
 
-    public List<CategoryGroup> Categories
+    public List<string> Categories
     {
         get => _categories;
         set
