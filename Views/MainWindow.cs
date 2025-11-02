@@ -28,8 +28,9 @@ public class MainWindow
         var settingsAction = Gio.SimpleAction.New("settings", null);
         settingsAction.OnActivate += (sender, args) =>
         {
-            Logger.Instance.Information("Settings action activated");
-            // TODO: Open settings dialog
+            Logger.Instance.Information("Opening preferences dialog");
+            var preferencesDialog = new PreferencesDialog(_window);
+            preferencesDialog.Show();
         };
 
         _window.AddAction(settingsAction);
@@ -57,6 +58,11 @@ public class MainWindow
 
             scrolledwindow {
                 background-color: transparent;
+            }
+
+            .calculated-value {
+                color: #3584e4;
+                font-weight: bold;
             }
         ";
 
@@ -147,7 +153,7 @@ public class MainWindow
 
         // Create Preferences submenu
         var preferencesMenu = Gio.Menu.New();
-        preferencesMenu.Append("Settings", "win.settings");
+        preferencesMenu.Append("Edit Preferences", "win.settings");
 
         menu.AppendSubmenu("Preferences", preferencesMenu);
 
