@@ -7,6 +7,7 @@ using Lab4.Services;
 public class PreferencesViewModel : INotifyPropertyChanged
 {
     private User _user;
+    private readonly Action _onConfigurationSaved;
 
     public User User
     {
@@ -20,9 +21,10 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public PreferencesViewModel(User user)
+    public PreferencesViewModel(User user, Action onConfigurationSaved)
     {
         _user = user;
+        _onConfigurationSaved = onConfigurationSaved;
         UpdateCalculations();
     }
 
@@ -71,6 +73,9 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
         Logger.Instance.Information("User preferences updated: Weight={Weight}kg, Height={Height}cm, Age={Age}, Activity={Activity}",
             weight, height, age, activityLevel);
+
+        // Save configuration to disk
+        _onConfigurationSaved?.Invoke();
 
         return (true, string.Empty, string.Empty);
     }

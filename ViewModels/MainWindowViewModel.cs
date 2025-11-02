@@ -35,7 +35,16 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
     public MainWindowViewModel()
     {
-        CurrentUser = new User();
+        // Load user config from file, or create new if not exists
+        CurrentUser = ConfigurationService.LoadUserConfig() ?? new User();
+
+        // Calculate nutritional needs on startup
+        NutritionCalculationService.CalculateNutritionalNeeds(CurrentUser);
+    }
+
+    public void SaveUserConfiguration()
+    {
+        ConfigurationService.SaveUserConfig(CurrentUser);
     }
 
     protected virtual void OnPropertyChanged(string propertyName)

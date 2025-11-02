@@ -32,7 +32,10 @@ public class PreferencesDialog
 
     public PreferencesDialog(Window parent, MainWindowViewModel mainViewModel)
     {
-        _viewModel = new PreferencesViewModel(mainViewModel.CurrentUser);
+        _viewModel = new PreferencesViewModel(
+            mainViewModel.CurrentUser,
+            () => mainViewModel.SaveUserConfiguration()
+        );
 
         _dialog = Window.New();
         _dialog.Title = "Preferences";
