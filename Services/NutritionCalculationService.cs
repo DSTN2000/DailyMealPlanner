@@ -6,11 +6,9 @@ public class NutritionCalculationService
 {
     public static void CalculateNutritionalNeeds(User user)
     {
-        // Calculate BMI
         var heightM = user.Height / 100.0;
         user.BMI = user.Weight / (heightM * heightM);
 
-        // Determine ARM based on activity level
         user.ARM = user.ActivityLevel switch
         {
             ActivityLevel.Sedentary => 1.2,
@@ -20,14 +18,11 @@ public class NutritionCalculationService
             _ => 1.2
         };
 
-        // Calculate BMR using Mifflin-St Jeor equation (assuming male for now)
-        // BMR = 10 * weight(kg) + 6.25 * height(cm) - 5 * age(years) + 5
-        var bmr = (10 * user.Weight) + (6.25 * user.Height) - (5 * user.Age) + 5;
+        var bmr = 447.593 + 9.247 * user.Weight + 3.098 * user.Height - 4.330 * user.Age;
 
         // Calculate TDEE (Total Daily Energy Expenditure)
         user.DailyCalories = bmr * user.ARM;
 
-        // Calculate macronutrient distribution (standard ratios)
         // Protein: 30% of calories, 4 cal/g
         user.DailyProtein = (user.DailyCalories * 0.30) / 4;
 
