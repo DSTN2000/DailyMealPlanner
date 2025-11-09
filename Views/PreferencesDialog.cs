@@ -104,15 +104,15 @@ public class PreferencesDialog
         section.Append(titleLabel);
 
         // Weight
-        section.Append(CreateLabeledEntry("Weight:", _viewModel.User.Weight.ToString(), "kg", out _weightEntry));
+        section.Append(CreateLabeledEntry("Weight:", _viewModel.WeightText, "kg", out _weightEntry));
         _weightEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // Height
-        section.Append(CreateLabeledEntry("Height:", _viewModel.User.Height.ToString(), "cm", out _heightEntry));
+        section.Append(CreateLabeledEntry("Height:", _viewModel.HeightText, "cm", out _heightEntry));
         _heightEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // Age
-        section.Append(CreateLabeledEntry("Age:", _viewModel.User.Age.ToString(), "years", out _ageEntry));
+        section.Append(CreateLabeledEntry("Age:", _viewModel.AgeText, "years", out _ageEntry));
         _ageEntry.SetInputPurpose(Gtk.InputPurpose.Number);
 
         // BMI (read-only)
@@ -201,7 +201,7 @@ public class PreferencesDialog
             radioButton.SetGroup(group);
         }
 
-        radioButton.Active = _viewModel.IsActivityLevel(activityLevelValue);
+        radioButton.Active = _viewModel.ActivityLevelIndex == activityLevelValue;
 
         return radioButton;
     }
@@ -260,27 +260,24 @@ public class PreferencesDialog
         var weightText = _weightEntry.GetBuffer().GetText();
         var heightText = _heightEntry.GetBuffer().GetText();
         var ageText = _ageEntry.GetBuffer().GetText();
-
-        if (!double.TryParse(weightText, out var weight) || weight <= 0) return;
-        if (!double.TryParse(heightText, out var height) || height <= 0) return;
-        if (!double.TryParse(ageText, out var age) || age <= 0) return;
-
         var activityLevelIndex = GetSelectedActivityLevelIndex();
 
-        // Update ViewModel (without validation, just for preview)
-        _viewModel.User.Weight = weight;
-        _viewModel.User.Height = height;
-        _viewModel.User.Age = age;
-        _viewModel.SetActivityLevel(activityLevelIndex);
-        _viewModel.UpdateCalculations();
+        // Get preview from ViewModel (handles all parsing and calculations)
+        var preview = _viewModel.PreviewCalculations(weightText, heightText, ageText, activityLevelIndex);
 
-        // Update UI from ViewModel
-        _bmiLabel.SetLabel(_viewModel.User.BMI.ToString("F1"));
-        _armLabel.SetLabel(_viewModel.User.ARM.ToString("F3"));
-        _caloriesLabel.SetLabel(_viewModel.User.DailyCalories.ToString("F0"));
-        _proteinLabel.SetLabel(_viewModel.User.DailyProtein.ToString("F1"));
-        _fatLabel.SetLabel(_viewModel.User.DailyFat.ToString("F1"));
-        _carbsLabel.SetLabel(_viewModel.User.DailyCarbohydrates.ToString("F1"));
+        if (!preview.isValid)
+        {
+            // Don't update if invalid input
+            return;
+        }
+
+        // Update UI with preview values from ViewModel
+        _bmiLabel.SetLabel(preview.previewBMI.Replace("BMI: ", ""));
+        _armLabel.SetLabel(preview.previewARM.Replace("ARM: ", ""));
+        _caloriesLabel.SetLabel(preview.previewCalories.Replace(" kcal", ""));
+        _proteinLabel.SetLabel(preview.previewProtein.Replace("Protein: ", "").Replace("g", ""));
+        _fatLabel.SetLabel(preview.previewFat.Replace("Fat: ", "").Replace("g", ""));
+        _carbsLabel.SetLabel(preview.previewCarbs.Replace("Carbs: ", "").Replace("g", ""));
     }
 
     private int GetSelectedActivityLevelIndex()
@@ -297,15 +294,10 @@ public class PreferencesDialog
         var weightText = _weightEntry.GetBuffer().GetText();
         var heightText = _heightEntry.GetBuffer().GetText();
         var ageText = _ageEntry.GetBuffer().GetText();
-
-        if (!double.TryParse(weightText, out var weight)) weight = 0;
-        if (!double.TryParse(heightText, out var height)) height = 0;
-        if (!double.TryParse(ageText, out var age)) age = 0;
-
         var activityLevelIndex = GetSelectedActivityLevelIndex();
 
-        // Validate and apply through ViewModel
-        var result = _viewModel.ValidateAndApply(weight, height, age, activityLevelIndex);
+        // Validate and apply through ViewModel (passes strings, ViewModel handles parsing)
+        var result = _viewModel.ValidateAndApply(weightText, heightText, ageText, activityLevelIndex);
 
         if (!result.isValid)
         {

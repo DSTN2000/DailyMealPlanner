@@ -24,15 +24,36 @@ public class CategoryView
         _expander.MarginTop = 5;
         _expander.MarginBottom = 5;
 
-        // Lazy loading: only build UI when expanded
-        _expander.OnActivate += (sender, args) =>
+        // Lazy loading: load products when expanded
+        _expander.OnActivate += async (sender, args) =>
         {
             if (!_isLoaded && _expander.GetExpanded())
             {
-                BuildProductsList();
+                await LoadProductsAsync();
                 _isLoaded = true;
             }
         };
+
+        // Subscribe to ViewModel events
+        _viewModel.ProductsLoaded += (s, e) => BuildProductsList();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        // Show loading indicator
+        var loadingLabel = Label.New("Loading products...");
+        _expander.SetChild(loadingLabel);
+
+        try
+        {
+            await _viewModel.LoadProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            var errorLabel = Label.New($"Error: {ex.Message}");
+            errorLabel.AddCssClass("error");
+            _expander.SetChild(errorLabel);
+        }
     }
 
     private void BuildProductsList()
@@ -43,14 +64,10 @@ public class CategoryView
         _productsContainer.MarginStart = 10;
         _productsContainer.MarginEnd = 10;
 
-        // Group products by subcategory (labels)
-        var grouped = _viewModel.Products
-            .GroupBy(p => p.Labels.FirstOrDefault() ?? "Other")
-            .OrderBy(g => g.Key);
-
-        foreach (var group in grouped)
+        // Use subcategory groups from ViewModel (already sorted)
+        foreach (var (subcategory, products) in _viewModel.SubcategoryGroups)
         {
-            var subcategoryExpander = CreateSubcategoryExpander(group.Key, group.ToList());
+            var subcategoryExpander = CreateSubcategoryExpander(subcategory, products);
             _productsContainer.Append(subcategoryExpander);
         }
 
@@ -88,8 +105,8 @@ public class CategoryView
 
     private void LoadProducts(Box container, List<ProductViewModel> products)
     {
-        // Use ListView for virtualization if many products
-        if (products.Count > 50)
+        // Use ListView for virtualization if many products (delegate to ViewModel)
+        if (_viewModel.ShouldUseVirtualization(products.Count))
         {
             var listView = CreateVirtualizedProductList(products);
             container.Append(listView);

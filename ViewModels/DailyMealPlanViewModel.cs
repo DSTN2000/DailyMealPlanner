@@ -10,6 +10,7 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     private readonly DailyMealPlan _model;
     private ObservableCollection<MealTimeViewModel> _mealTimes;
     private bool _isRecalculating = false;
+    private User? _currentUser;
 
     // View-friendly properties (NO Model exposure!)
     public DateTime Date
@@ -49,15 +50,43 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     public string TotalFatDisplay => $"F: {TotalFat:F1}g";
     public string TotalCarbsDisplay => $"C: {TotalCarbohydrates:F1}g";
 
+    // Goal values from User (for progress tracking)
+    public double GoalCalories => _currentUser?.DailyCalories ?? 2000;
+    public double GoalProtein => _currentUser?.DailyProtein ?? 150;
+    public double GoalFat => _currentUser?.DailyFat ?? 67;
+    public double GoalCarbohydrates => _currentUser?.DailyCarbohydrates ?? 225;
+
+    // Progress calculations
+    public double CalorieProgressPercentage => GoalCalories > 0 ? (TotalCalories / GoalCalories) * 100 : 0;
+    public double CalorieProgressFraction => GoalCalories > 0 ? Math.Min(TotalCalories / GoalCalories, 1.0) : 0;
+    public string CalorieProgressDisplay => $"{TotalCalories:F0} / {GoalCalories:F0} kcal ({CalorieProgressPercentage:F0}%)";
+    public string CalorieProgressColorClass => GetProgressColorClass(CalorieProgressPercentage);
+
+    public double ProteinProgressPercentage => GoalProtein > 0 ? (TotalProtein / GoalProtein) * 100 : 0;
+    public double ProteinProgressFraction => GoalProtein > 0 ? Math.Min(TotalProtein / GoalProtein, 1.0) : 0;
+    public string ProteinProgressDisplay => $"P: {TotalProtein:F0}/{GoalProtein:F0}g";
+    public string ProteinProgressColorClass => GetProgressColorClass(ProteinProgressPercentage);
+
+    public double FatProgressPercentage => GoalFat > 0 ? (TotalFat / GoalFat) * 100 : 0;
+    public double FatProgressFraction => GoalFat > 0 ? Math.Min(TotalFat / GoalFat, 1.0) : 0;
+    public string FatProgressDisplay => $"F: {TotalFat:F0}/{GoalFat:F0}g";
+    public string FatProgressColorClass => GetProgressColorClass(FatProgressPercentage);
+
+    public double CarbsProgressPercentage => GoalCarbohydrates > 0 ? (TotalCarbohydrates / GoalCarbohydrates) * 100 : 0;
+    public double CarbsProgressFraction => GoalCarbohydrates > 0 ? Math.Min(TotalCarbohydrates / GoalCarbohydrates, 1.0) : 0;
+    public string CarbsProgressDisplay => $"C: {TotalCarbohydrates:F0}/{GoalCarbohydrates:F0}g";
+    public string CarbsProgressColorClass => GetProgressColorClass(CarbsProgressPercentage);
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public DailyMealPlanViewModel() : this(new DailyMealPlan())
+    public DailyMealPlanViewModel() : this(new DailyMealPlan(), null)
     {
     }
 
-    public DailyMealPlanViewModel(DailyMealPlan model)
+    public DailyMealPlanViewModel(DailyMealPlan model, User? currentUser = null)
     {
         _model = model ?? throw new ArgumentNullException(nameof(model));
+        _currentUser = currentUser;
 
         // Wrap all model mealtimes in ViewModels
         _mealTimes = new ObservableCollection<MealTimeViewModel>(
@@ -177,11 +206,42 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(TotalProteinDisplay));
             OnPropertyChanged(nameof(TotalFatDisplay));
             OnPropertyChanged(nameof(TotalCarbsDisplay));
+
+            // Notify progress properties
+            OnPropertyChanged(nameof(CalorieProgressPercentage));
+            OnPropertyChanged(nameof(CalorieProgressFraction));
+            OnPropertyChanged(nameof(CalorieProgressDisplay));
+            OnPropertyChanged(nameof(CalorieProgressColorClass));
+            OnPropertyChanged(nameof(ProteinProgressPercentage));
+            OnPropertyChanged(nameof(ProteinProgressFraction));
+            OnPropertyChanged(nameof(ProteinProgressDisplay));
+            OnPropertyChanged(nameof(ProteinProgressColorClass));
+            OnPropertyChanged(nameof(FatProgressPercentage));
+            OnPropertyChanged(nameof(FatProgressFraction));
+            OnPropertyChanged(nameof(FatProgressDisplay));
+            OnPropertyChanged(nameof(FatProgressColorClass));
+            OnPropertyChanged(nameof(CarbsProgressPercentage));
+            OnPropertyChanged(nameof(CarbsProgressFraction));
+            OnPropertyChanged(nameof(CarbsProgressDisplay));
+            OnPropertyChanged(nameof(CarbsProgressColorClass));
         }
         finally
         {
             _isRecalculating = false;
         }
+    }
+
+    /// <summary>
+    /// Determines CSS color class based on progress percentage
+    /// </summary>
+    private static string GetProgressColorClass(double percentage)
+    {
+        if (percentage < 80 || percentage > 120)
+            return "error";
+        else if (percentage < 90 || percentage > 110)
+            return "warning";
+        else
+            return "success";
     }
 
     /// <summary>

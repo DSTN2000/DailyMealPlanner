@@ -6,10 +6,10 @@ using Lab4.Services;
 
 public class MainWindowViewModel : INotifyPropertyChanged
 {
-    private List<string> _categories = new();
+    private List<CategoryViewModel> _categories = new();
     private bool _isLoading;
 
-    public List<string> Categories
+    public List<CategoryViewModel> Categories
     {
         get => _categories;
         set
@@ -44,7 +44,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         // Initialize meal plan for today
         var savedPlan = MealPlanService.LoadMealPlan(DateTime.Today);
-        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan());
+        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan(), CurrentUser);
     }
 
     public void SaveUserConfiguration()
@@ -63,7 +63,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         try
         {
             Logger.Instance.Information("Loading categories...");
-            Categories = await CatalogService.GetCategoriesAsync();
+            var categoryNames = await CatalogService.GetCategoriesAsync();
+            Categories = categoryNames.Select(name => new CategoryViewModel(name)).ToList();
             Logger.Instance.Information("Categories loaded successfully");
         }
         catch (Exception ex)
@@ -76,17 +77,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public async Task<List<ProductViewModel>> LoadProductsForCategoryAsync(string categoryName)
-    {
-        Logger.Instance.Information("Loading products for category: {Category}", categoryName);
-        var products = await CatalogService.GetProductsByCategoryAsync(categoryName);
-        return products.Select(p => new ProductViewModel(p)).ToList();
-    }
-
-    public async Task<Product?> GetProductByIdAsync(string productId)
-    {
-        return await CatalogService.GetProductByIdAsync(productId);
-    }
 
     public void SaveMealPlan()
     {
@@ -107,7 +97,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var plan = MealPlanService.LoadMealPlan(date);
             if (plan != null)
             {
-                MealPlan = new DailyMealPlanViewModel(plan);
+                MealPlan = new DailyMealPlanViewModel(plan, CurrentUser);
                 OnPropertyChanged(nameof(MealPlan));
             }
         }
@@ -127,5 +117,26 @@ public class MainWindowViewModel : INotifyPropertyChanged
         Logger.Instance.Information("Searching products with query: {Query}", searchQuery);
         var products = await CatalogService.SearchProductsAsync(searchQuery);
         return products.Select(p => new ProductViewModel(p)).ToList();
+    }
+
+    public async Task AddProductToMealPlanAsync(string productName, MealTimeType mealTimeType, double weight)
+    {
+        try
+        {
+            // Search for the product by name
+            var products = await SearchProductsAsync(productName);
+            var productVm = products.FirstOrDefault(p => p.Name == productName);
+
+            if (productVm != null)
+            {
+                MealPlan.AddProduct(productVm, mealTimeType, weight);
+                Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", productName, weight, mealTimeType);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to add product to meal plan");
+            throw;
+        }
     }
 }
