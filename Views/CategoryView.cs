@@ -25,9 +25,10 @@ public class CategoryView
         _expander.MarginBottom = 5;
 
         // Lazy loading: load products when expanded
-        _expander.OnActivate += async (sender, args) =>
+        // Use OnNotify to monitor "expanded" property changes
+        _expander.OnNotify += async (sender, args) =>
         {
-            if (!_isLoaded && _expander.GetExpanded())
+            if (args.Pspec.GetName() == "expanded" && _expander.GetExpanded() && !_isLoaded)
             {
                 await LoadProductsAsync();
                 _isLoaded = true;
@@ -89,13 +90,16 @@ public class CategoryView
 
         var productsBox = Box.New(Orientation.Vertical, 2);
         productsBox.MarginStart = 10;
+        var isLoaded = false;
 
         // Lazy load products when subcategory is expanded
-        expander.OnActivate += (sender, args) =>
+        // Use OnNotify to monitor "expanded" property changes
+        expander.OnNotify += (sender, args) =>
         {
-            if (expander.GetExpanded() && productsBox.GetFirstChild() == null)
+            if (args.Pspec.GetName() == "expanded" && expander.GetExpanded() && !isLoaded)
             {
                 LoadProducts(productsBox, products);
+                isLoaded = true;
             }
         };
 
