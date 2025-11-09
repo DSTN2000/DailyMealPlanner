@@ -51,15 +51,18 @@ public class ProductView
         nameLabel.Halign = Align.Start;
         nameLabel.Xalign = 0;
         nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
+        nameLabel.SetMaxWidthChars(50);
         infoBox.Append(nameLabel);
 
         // Nutritional info
         var nutritionBox = Box.New(Orientation.Horizontal, 10);
+        nutritionBox.Halign = Align.Start;
 
         if (!string.IsNullOrEmpty(_viewModel.CaloriesDisplay))
         {
             var caloriesLabel = Label.New(_viewModel.CaloriesDisplay);
             caloriesLabel.AddCssClass("dim-label");
+            caloriesLabel.SetEllipsize(Pango.EllipsizeMode.End);
             nutritionBox.Append(caloriesLabel);
         }
 
@@ -67,6 +70,7 @@ public class ProductView
         {
             var proteinLabel = Label.New(_viewModel.ProteinDisplay);
             proteinLabel.AddCssClass("dim-label");
+            proteinLabel.SetEllipsize(Pango.EllipsizeMode.End);
             nutritionBox.Append(proteinLabel);
         }
 
@@ -74,6 +78,7 @@ public class ProductView
         {
             var fatLabel = Label.New(_viewModel.FatDisplay);
             fatLabel.AddCssClass("dim-label");
+            fatLabel.SetEllipsize(Pango.EllipsizeMode.End);
             nutritionBox.Append(fatLabel);
         }
 
@@ -81,6 +86,7 @@ public class ProductView
         {
             var carbsLabel = Label.New(_viewModel.CarbsDisplay);
             carbsLabel.AddCssClass("dim-label");
+            carbsLabel.SetEllipsize(Pango.EllipsizeMode.End);
             nutritionBox.Append(carbsLabel);
         }
 

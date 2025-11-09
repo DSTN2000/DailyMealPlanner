@@ -74,7 +74,7 @@ public class CategoryView
 
         // Add to scrolled window for long lists
         var scrolled = ScrolledWindow.New();
-        scrolled.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolled.SetPolicy(PolicyType.Never, PolicyType.Automatic);
         scrolled.SetMaxContentHeight(400);
         scrolled.SetPropagateNaturalHeight(true);
         scrolled.Child = _productsContainer;
@@ -109,36 +109,7 @@ public class CategoryView
 
     private void LoadProducts(Box container, List<ProductViewModel> products)
     {
-        // Use ListView for virtualization if many products (delegate to ViewModel)
-        if (_viewModel.ShouldUseVirtualization(products.Count))
-        {
-            var listView = CreateVirtualizedProductList(products);
-            container.Append(listView);
-        }
-        else
-        {
-            // For smaller lists, create ProductView instances
-            foreach (var productVm in products)
-            {
-                var productView = new ProductView(productVm);
-                productView.ProductClicked += (s, e) =>
-                {
-                    ProductClicked?.Invoke(this, productVm);
-                };
-                container.Append(productView.Widget);
-            }
-        }
-    }
-
-    private Widget CreateVirtualizedProductList(List<ProductViewModel> products)
-    {
-        var scrolled = ScrolledWindow.New();
-        scrolled.SetPolicy(PolicyType.Never, PolicyType.Automatic);
-        scrolled.SetMaxContentHeight(300);
-
-        var listBox = ListBox.New();
-        listBox.SetSelectionMode(SelectionMode.None);
-
+        // Create ProductView instances for all products (consistent styling)
         foreach (var productVm in products)
         {
             var productView = new ProductView(productVm);
@@ -146,13 +117,7 @@ public class CategoryView
             {
                 ProductClicked?.Invoke(this, productVm);
             };
-
-            var row = ListBoxRow.New();
-            row.SetChild(productView.Widget);
-            listBox.Append(row);
+            container.Append(productView.Widget);
         }
-
-        scrolled.SetChild(listBox);
-        return scrolled;
     }
 }
