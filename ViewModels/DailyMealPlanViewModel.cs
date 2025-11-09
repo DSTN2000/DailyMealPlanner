@@ -146,9 +146,16 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     /// <summary>
     /// Adds a custom mealtime
     /// </summary>
-    public void AddCustomMealTime(string name)
+    public bool AddCustomMealTime(string name)
     {
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (string.IsNullOrWhiteSpace(name)) return false;
+
+        // Check for duplicate names (case-insensitive)
+        if (MealTimes.Any(mt => mt.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+        {
+            Logger.Instance.Warning("Cannot add mealtime: duplicate name '{Name}'", name);
+            return false;
+        }
 
         var modelMealTime = new MealTime(MealTimeType.Custom, name);
         _model.MealTimes.Add(modelMealTime);
@@ -157,9 +164,11 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
         mealTimeVm.ItemsChanged += (s, e) => Recalculate();
 
         MealTimes.Add(mealTimeVm);
+        OnPropertyChanged(nameof(MealTimes)); // Trigger UI rebuild
         Logger.Instance.Information("Added custom mealtime: {Name}", name);
 
         Recalculate();
+        return true;
     }
 
     /// <summary>
@@ -172,9 +181,52 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
         var modelMealTime = mealTimeVm.GetModel();
         _model.MealTimes.Remove(modelMealTime);
         MealTimes.Remove(mealTimeVm);
+        OnPropertyChanged(nameof(MealTimes)); // Trigger UI rebuild
 
         Logger.Instance.Information("Removed custom mealtime: {Name}", mealTimeVm.Name);
         Recalculate();
+    }
+
+    /// <summary>
+    /// Validates if a meal time name is unique
+    /// </summary>
+    public bool IsNameUnique(string name, MealTimeViewModel? excludeMealTime = null)
+    {
+        return !MealTimes.Any(mt =>
+            mt != excludeMealTime &&
+            mt.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Reorders a meal time (only custom ones can be reordered)
+    /// </summary>
+    public void ReorderMealTime(MealTimeViewModel mealTimeVm, int newIndex)
+    {
+        if (mealTimeVm == null || !mealTimeVm.IsCustom) return;
+
+        var oldIndex = MealTimes.IndexOf(mealTimeVm);
+        if (oldIndex == -1 || oldIndex == newIndex) return;
+
+        // Remove from old position
+        MealTimes.RemoveAt(oldIndex);
+        var modelMealTime = _model.MealTimes[oldIndex];
+        _model.MealTimes.RemoveAt(oldIndex);
+
+        // Adjust target index if moving forward (after removal, indices shift down)
+        var adjustedIndex = newIndex;
+        if (newIndex > oldIndex)
+        {
+            adjustedIndex = newIndex - 1;
+        }
+
+        // Insert at adjusted position (clamped to valid range)
+        adjustedIndex = Math.Clamp(adjustedIndex, 0, MealTimes.Count);
+        MealTimes.Insert(adjustedIndex, mealTimeVm);
+        _model.MealTimes.Insert(adjustedIndex, modelMealTime);
+
+        OnPropertyChanged(nameof(MealTimes)); // Trigger UI rebuild
+        Logger.Instance.Information("Reordered mealtime: {Name} from {OldIndex} to {NewIndex} (adjusted to {AdjustedIndex})",
+            mealTimeVm.Name, oldIndex, newIndex, adjustedIndex);
     }
 
     /// <summary>

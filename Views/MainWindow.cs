@@ -207,13 +207,14 @@ public class MainWindow
 
     private void ShowAddProductDialog(string productName)
     {
-        var dialogVm = new AddProductDialogViewModel(productName);
+        var mealTimes = _viewModel.MealPlan.MealTimes.ToList();
+        var dialogVm = new AddProductDialogViewModel(productName, mealTimes);
         var dialog = new AddProductDialog(_window, dialogVm);
 
         dialog.ProductAdded += async (s, viewModel) =>
         {
-            var mealTimeType = viewModel.GetMealTimeType();
-            await _viewModel.AddProductToMealPlanAsync(viewModel.ProductName, mealTimeType, viewModel.Weight);
+            var selectedMealTime = viewModel.GetSelectedMealTime();
+            await _viewModel.AddProductToMealTimeAsync(viewModel.ProductName, selectedMealTime, viewModel.Weight);
             BuildMealPlanUI();
         };
 

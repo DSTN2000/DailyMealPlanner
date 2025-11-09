@@ -9,8 +9,9 @@ using Lab4.Models;
 public class AddProductDialogViewModel : INotifyPropertyChanged
 {
     private string _productName = string.Empty;
-    private int _selectedMealTimeIndex = 0; // 0=Breakfast, 1=Lunch, 2=Dinner
+    private int _selectedMealTimeIndex = 0;
     private double _weight = 100.0;
+    private readonly List<MealTimeViewModel> _mealTimes;
 
     public string ProductName
     {
@@ -45,13 +46,17 @@ public class AddProductDialogViewModel : INotifyPropertyChanged
         }
     }
 
-    public string[] MealTimeOptions { get; } = { "Breakfast", "Lunch", "Dinner" };
+    public string[] MealTimeOptions { get; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public AddProductDialogViewModel(string productName)
+    public AddProductDialogViewModel(string productName, List<MealTimeViewModel> mealTimes)
     {
         ProductName = productName;
+        _mealTimes = mealTimes ?? throw new ArgumentNullException(nameof(mealTimes));
+
+        // Build meal time options from actual meal times
+        MealTimeOptions = _mealTimes.Select(mt => mt.Name).ToArray();
     }
 
     protected virtual void OnPropertyChanged(string propertyName)
@@ -59,15 +64,13 @@ public class AddProductDialogViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    // Internal method to convert index to Model enum (only for ViewModel-to-Model communication)
-    internal MealTimeType GetMealTimeType()
+    // Internal method to get selected meal time ViewModel
+    internal MealTimeViewModel GetSelectedMealTime()
     {
-        return SelectedMealTimeIndex switch
+        if (SelectedMealTimeIndex >= 0 && SelectedMealTimeIndex < _mealTimes.Count)
         {
-            0 => MealTimeType.Breakfast,
-            1 => MealTimeType.Lunch,
-            2 => MealTimeType.Dinner,
-            _ => MealTimeType.Breakfast
-        };
+            return _mealTimes[SelectedMealTimeIndex];
+        }
+        return _mealTimes[0]; // Default to first meal time
     }
 }

@@ -193,6 +193,19 @@ scrolledwindow {
 }
 
 /* ============================================================================
+   SEPARATORS
+   ============================================================================ */
+
+separator.horizontal {
+    min-height: 1px;
+    background-color: alpha(@theme_fg_color, 0.2);
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+/* ============================================================================
    PROGRESS BARS - Main Calorie Progress
    ============================================================================ */
 
@@ -283,6 +296,53 @@ button.destructive-action {
 
 button.destructive-action:hover {
     background-color: alpha(#c01c28, 0.2);
+}
+
+button.suggested-action {
+    background: linear-gradient(180deg, #3584e4 0%, #2764c4 100%);
+    color: white;
+    font-weight: 600;
+}
+
+button.suggested-action:hover {
+    background: linear-gradient(180deg, #4595f5 0%, #3584e4 100%);
+}
+
+/* ============================================================================
+   DRAG AND DROP
+   ============================================================================ */
+
+.drag-handle {
+    opacity: 0.5;
+    font-size: 1.2em;
+    font-weight: bold;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.drag-handle:hover {
+    opacity: 0.8;
+}
+
+.dragging {
+    opacity: 0.5;
+}
+
+/* Drop zones - invisible by default, visible on hover/drag */
+.drop-zone {
+    min-height: 20px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    background-color: transparent;
+    border: 2px dashed transparent;
+    border-radius: 4px;
+    transition: all 150ms ease-in-out;
+}
+
+.drop-zone-active {
+    background-color: alpha(@theme_selected_bg_color, 0.1);
+    border-color: alpha(@theme_selected_bg_color, 0.5);
+    min-height: 30px;
 }
 
 /* ============================================================================

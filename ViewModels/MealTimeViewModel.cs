@@ -10,10 +10,24 @@ public class MealTimeViewModel : INotifyPropertyChanged
     private ObservableCollection<MealPlanItemViewModel> _items;
 
     // View-friendly properties (NO Model exposure!)
-    public string Name => _model.Name;
+    public string Name
+    {
+        get => _model.Name;
+        set
+        {
+            if (_model.Name != value && !string.IsNullOrWhiteSpace(value))
+            {
+                _model.Name = value;
+                OnPropertyChanged(nameof(Name));
+                NameChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
+
     public MealTimeType Type => _model.Type;
     public bool IsCustom => Type == MealTimeType.Custom;
     public bool CanRemove => IsCustom;
+    public bool CanRename => IsCustom;
 
     public ObservableCollection<MealPlanItemViewModel> Items
     {
@@ -44,6 +58,7 @@ public class MealTimeViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? ItemsChanged;
+    public event EventHandler? NameChanged;
 
     public MealTimeViewModel(MealTime model)
     {

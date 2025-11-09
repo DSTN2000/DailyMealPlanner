@@ -139,4 +139,29 @@ public class MainWindowViewModel : INotifyPropertyChanged
             throw;
         }
     }
+
+    public async Task AddProductToMealTimeAsync(string productName, MealTimeViewModel mealTimeVm, double weight)
+    {
+        try
+        {
+            // Search for the product by name
+            var products = await SearchProductsAsync(productName);
+            var productVm = products.FirstOrDefault(p => p.Name == productName);
+
+            if (productVm != null)
+            {
+                // Get the underlying product model
+                var product = productVm.GetModel();
+
+                // Add directly to the meal time
+                mealTimeVm.AddItem(product, weight);
+                Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", productName, weight, mealTimeVm.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to add product to meal time");
+            throw;
+        }
+    }
 }
