@@ -20,6 +20,7 @@ public class MealPlanItemViewModel : INotifyPropertyChanged
             if (_weight != value && value > 0)
             {
                 _weight = value;
+                _model.Weight = value;  // Update the underlying model
                 OnPropertyChanged(nameof(Weight));
                 OnPropertyChanged(nameof(WeightDisplay));
                 // Notify parent that recalculation is needed
