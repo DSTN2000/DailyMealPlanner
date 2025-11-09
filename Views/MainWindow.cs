@@ -10,6 +10,7 @@ public class MainWindow
     private readonly ApplicationWindow _window;
     private Box _contentBox = null!;
     private Box _mealPlanBox = null!;
+    private DailyMealPlanView? _mealPlanView;
 
     public MainWindow(Gtk.Application app)
     {
@@ -352,105 +353,54 @@ public class MainWindow
 
     private ScrolledWindow CreateProductListView(List<ProductViewModel> products)
     {
-        // Create StringList as a simple model - we'll display product info in the factory
-        var stringList = Gtk.StringList.New(null);
-        foreach (var product in products)
+        // For small lists, use Box with ProductView instances
+        if (products.Count <= 100)
         {
-            // Store product data as JSON string
-            var productData = $"{product.Name}|{product.Calories}|{product.Protein}|{product.TotalFat}|{product.Carbohydrates}";
-            stringList.Append(productData);
-        }
+            var box = Box.New(Orientation.Vertical, 2);
+            box.MarginStart = 10;
+            box.MarginEnd = 10;
 
-        // Create selection model (no selection)
-        var selectionModel = NoSelection.New(stringList);
-
-        // Create factory for list items
-        var factory = SignalListItemFactory.New();
-
-        factory.OnSetup += (sender, args) =>
-        {
-            if (args.Object is ListItem listItem)
+            foreach (var productVm in products)
             {
-                var row = CreateEmptyProductRow();
-                listItem.Child = row;
-            }
-        };
-
-        factory.OnBind += (sender, args) =>
-        {
-            if (args.Object is ListItem listItem)
-            {
-                var stringObject = listItem.Item as StringObject;
-                if (stringObject != null && listItem.Child is Box row)
+                var productView = new ProductView(productVm);
+                productView.ProductClicked += (s, e) =>
                 {
-                    var productData = stringObject.String?.Split('|');
-                    if (productData != null && productData.Length >= 5)
-                    {
-                        UpdateProductRow(row, productData[0],
-                            double.Parse(productData[1]),
-                            double.Parse(productData[2]),
-                            double.Parse(productData[3]),
-                            double.Parse(productData[4]));
-                    }
-                }
+                    ShowAddProductDialog(productVm.Name);
+                };
+                box.Append(productView.Widget);
             }
-        };
 
-        // Create ListView with virtualization
-        var listView = ListView.New(selectionModel, factory);
+            var scrolledWindow = ScrolledWindow.New();
+            scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+            scrolledWindow.SetSizeRequest(-1, 400);
+            scrolledWindow.Child = box;
 
-        // Wrap in ScrolledWindow with scrollbar on the left
-        var scrolledWindow = ScrolledWindow.New();
-        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
-        scrolledWindow.SetSizeRequest(-1, 400); // Max height
-        scrolledWindow.SetPlacement(CornerType.TopRight); // Place scrollbar on the left
-        scrolledWindow.Child = listView;
-
-        return scrolledWindow;
-    }
-
-    private Box CreateEmptyProductRow()
-    {
-        // Create card container
-        var card = Box.New(Orientation.Vertical, 0);
-        card.MarginStart = 10;
-        card.MarginEnd = 30; // Extra margin for scrollbar space
-        card.MarginTop = 4;
-        card.MarginBottom = 4;
-
-        // Add CSS classes for card styling
-        card.AddCssClass("card");
-
-        // Product name label
-        var nameLabel = Label.New("");
-        nameLabel.Halign = Align.Start;
-        nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
-        nameLabel.MarginStart = 12;
-        nameLabel.MarginEnd = 12;
-        nameLabel.MarginTop = 8;
-        nameLabel.MarginBottom = 8;
-
-        card.Append(nameLabel);
-
-        return card;
-    }
-
-    private void UpdateProductRow(Box card, string name, double calories, double protein, double fat, double carbs)
-    {
-        var nameLabel = card.GetFirstChild() as Label;
-        if (nameLabel != null)
-        {
-            nameLabel.SetText($"{name} ({calories:F0} kcal)");
+            return scrolledWindow;
         }
 
-        // Make product clickable to add to meal plan
-        var gesture = GestureClick.New();
-        gesture.OnReleased += (sender, args) =>
+        // For large lists, use virtualized ListBox
+        var listBox = ListBox.New();
+        listBox.SetSelectionMode(SelectionMode.None);
+
+        foreach (var productVm in products)
         {
-            // Show dialog to select mealtime and weight
-            ShowAddProductDialog(name);
-        };
-        card.AddController(gesture);
+            var productView = new ProductView(productVm);
+            productView.ProductClicked += (s, e) =>
+            {
+                ShowAddProductDialog(productVm.Name);
+            };
+
+            var row = ListBoxRow.New();
+            row.SetChild(productView.Widget);
+            listBox.Append(row);
+        }
+
+        var scrolled = ScrolledWindow.New();
+        scrolled.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolled.SetSizeRequest(-1, 400);
+        scrolled.SetChild(listBox);
+
+        return scrolled;
     }
 
     private void ShowAddProductDialog(string productName)
@@ -544,242 +494,9 @@ public class MainWindow
             _mealPlanBox.Remove(_mealPlanBox.GetFirstChild()!);
         }
 
-        // Daily totals card (sticky at top)
-        var dailyTotalsBox = CreateDailyTotalsSection();
-        _mealPlanBox.Append(dailyTotalsBox);
-
-        // Create scrolled window for meal plan
-        var scrolledWindow = ScrolledWindow.New();
-        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
-        scrolledWindow.Vexpand = true;
-
-        // Create container for mealtimes
-        var mealPlanContainer = Box.New(Orientation.Vertical, 10);
-        mealPlanContainer.MarginStart = 5;
-        mealPlanContainer.MarginEnd = 5;
-        mealPlanContainer.MarginTop = 5;
-        mealPlanContainer.MarginBottom = 5;
-
-        // Create section for each mealtime
-        foreach (var mealTime in _viewModel.MealPlan.MealTimes)
-        {
-            var mealTimeBox = CreateMealTimeSection(mealTime);
-            mealPlanContainer.Append(mealTimeBox);
-        }
-
-        scrolledWindow.Child = mealPlanContainer;
-        _mealPlanBox.Append(scrolledWindow);
+        // Create the DailyMealPlanView and add it to the container
+        _mealPlanView = new DailyMealPlanView(_viewModel.MealPlan, _viewModel.CurrentUser);
+        _mealPlanBox.Append(_mealPlanView.Widget);
     }
 
-    private Box CreateMealTimeSection(MealTimeViewModel mealTimeVm)
-    {
-        var section = Box.New(Orientation.Vertical, 5);
-        section.AddCssClass("card");
-        section.MarginTop = 5;
-        section.MarginBottom = 5;
-
-        // Header with mealtime name
-        var header = Label.New(mealTimeVm.Name);
-        header.AddCssClass("title-3");
-        header.Halign = Align.Start;
-        header.MarginStart = 12;
-        header.MarginTop = 8;
-        section.Append(header);
-
-        // Items list
-        if (mealTimeVm.HasItems)
-        {
-            foreach (var itemVm in mealTimeVm.Items)
-            {
-                var itemBox = CreateMealPlanItemRow(mealTimeVm, itemVm);
-                section.Append(itemBox);
-            }
-        }
-        else
-        {
-            var emptyLabel = Label.New("No items yet");
-            emptyLabel.AddCssClass("dim-label");
-            emptyLabel.Halign = Align.Start;
-            emptyLabel.MarginStart = 12;
-            emptyLabel.MarginBottom = 8;
-            section.Append(emptyLabel);
-        }
-
-        // Mealtime totals
-        var totalsLabel = Label.New(mealTimeVm.NutritionSummary);
-        totalsLabel.AddCssClass("calculated-value");
-        totalsLabel.Halign = Align.Start;
-        totalsLabel.MarginStart = 12;
-        totalsLabel.MarginBottom = 8;
-        section.Append(totalsLabel);
-
-        return section;
-    }
-
-    private Box CreateMealPlanItemRow(MealTimeViewModel mealTimeVm, MealPlanItemViewModel itemVm)
-    {
-        var row = Box.New(Orientation.Horizontal, 10);
-        row.MarginStart = 12;
-        row.MarginEnd = 12;
-        row.MarginTop = 4;
-        row.MarginBottom = 4;
-
-        // Product name
-        var nameLabel = Label.New(itemVm.ProductName);
-        nameLabel.Halign = Align.Start;
-        nameLabel.Hexpand = true;
-        nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
-        row.Append(nameLabel);
-
-        // Weight spinner
-        var weightSpin = SpinButton.NewWithRange(1, 10000, 1);
-        weightSpin.SetValue(itemVm.Weight);
-        weightSpin.OnValueChanged += (sender, args) =>
-        {
-            var newWeight = weightSpin.GetValue();
-            _viewModel.MealPlan.UpdateItemWeight(itemVm, newWeight);
-            BuildMealPlanUI(); // Rebuild to update totals
-        };
-        row.Append(weightSpin);
-
-        var gramsLabel = Label.New("g");
-        row.Append(gramsLabel);
-
-        // Remove button
-        var removeButton = Button.NewWithLabel("Remove");
-        removeButton.AddCssClass("destructive-action");
-        removeButton.OnClicked += (sender, args) =>
-        {
-            _viewModel.MealPlan.RemoveItem(mealTimeVm, itemVm);
-            BuildMealPlanUI();
-        };
-        row.Append(removeButton);
-
-        return row;
-    }
-
-    private Box CreateDailyTotalsSection()
-    {
-        var section = Box.New(Orientation.Vertical, 10);
-        section.AddCssClass("card");
-        section.MarginStart = 5;
-        section.MarginEnd = 5;
-        section.MarginTop = 5;
-        section.MarginBottom = 10;
-
-        var header = Label.New("Daily Progress");
-        header.AddCssClass("title-3");
-        header.Halign = Align.Start;
-        header.MarginStart = 12;
-        header.MarginTop = 8;
-        section.Append(header);
-
-        // Current vs Goal
-        var actualCalories = _viewModel.MealPlan.TotalCalories;
-        var goalCalories = _viewModel.CurrentUser.DailyCalories;
-        var percentage = goalCalories > 0 ? (actualCalories / goalCalories) * 100 : 0;
-
-        var statusLabel = Label.New($"{actualCalories:F0} / {goalCalories:F0} kcal ({percentage:F0}%)");
-        statusLabel.AddCssClass("title-4");
-        statusLabel.Halign = Align.Start;
-        statusLabel.MarginStart = 12;
-        section.Append(statusLabel);
-
-        // Progress bar with dynamic color
-        var progressBar = ProgressBar.New();
-        progressBar.SetFraction(Math.Min(actualCalories / goalCalories, 1.0));
-        progressBar.MarginStart = 12;
-        progressBar.MarginEnd = 12;
-        progressBar.MarginBottom = 5;
-
-        // Determine color based on how close to goal
-        // Red if too far (< 80% or > 120%), yellow if close (80-90% or 110-120%), green if optimal (90-110%)
-        string colorClass;
-        if (percentage < 80 || percentage > 120)
-        {
-            colorClass = "error"; // Red
-        }
-        else if (percentage < 90 || percentage > 110)
-        {
-            colorClass = "warning"; // Yellow/Orange
-        }
-        else
-        {
-            colorClass = "success"; // Green
-        }
-        progressBar.AddCssClass(colorClass);
-        section.Append(progressBar);
-
-        // Macronutrient progress bars in a single row
-        var macrosBox = Box.New(Orientation.Horizontal, 8);
-        macrosBox.MarginStart = 12;
-        macrosBox.MarginEnd = 12;
-        macrosBox.MarginBottom = 8;
-        macrosBox.Homogeneous = true;
-
-        // Protein progress bar
-        var proteinBox = CreateMacroProgressBar(
-            "P",
-            _viewModel.MealPlan.TotalProtein,
-            _viewModel.CurrentUser.DailyProtein
-        );
-        macrosBox.Append(proteinBox);
-
-        // Fat progress bar
-        var fatBox = CreateMacroProgressBar(
-            "F",
-            _viewModel.MealPlan.TotalFat,
-            _viewModel.CurrentUser.DailyFat
-        );
-        macrosBox.Append(fatBox);
-
-        // Carbohydrates progress bar
-        var carbsBox = CreateMacroProgressBar(
-            "C",
-            _viewModel.MealPlan.TotalCarbohydrates,
-            _viewModel.CurrentUser.DailyCarbohydrates
-        );
-        macrosBox.Append(carbsBox);
-
-        section.Append(macrosBox);
-
-        return section;
-    }
-
-    private Box CreateMacroProgressBar(string label, double actual, double goal)
-    {
-        var box = Box.New(Orientation.Vertical, 2);
-
-        // Label with values
-        var percentage = goal > 0 ? (actual / goal) * 100 : 0;
-        var macroLabel = Label.New($"{label}: {actual:F0}/{goal:F0}g");
-        macroLabel.AddCssClass("caption");
-        macroLabel.Halign = Align.Center;
-        box.Append(macroLabel);
-
-        // Thin progress bar
-        var progressBar = ProgressBar.New();
-        progressBar.SetFraction(Math.Min(actual / goal, 1.0));
-        progressBar.AddCssClass("macro-progress");
-
-        // Color based on goal achievement
-        string colorClass;
-        if (percentage < 80 || percentage > 120)
-        {
-            colorClass = "error";
-        }
-        else if (percentage < 90 || percentage > 110)
-        {
-            colorClass = "warning";
-        }
-        else
-        {
-            colorClass = "success";
-        }
-        progressBar.AddCssClass(colorClass);
-
-        box.Append(progressBar);
-
-        return box;
-    }
 }
