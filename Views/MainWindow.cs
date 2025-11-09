@@ -65,6 +65,27 @@ public class MainWindow
                 color: #3584e4;
                 font-weight: bold;
             }
+
+            /* Progress bar colors */
+            progressbar.success trough progress {
+                background-color: #26a269;
+                background-image: linear-gradient(to bottom, #33d17a, #26a269);
+            }
+
+            progressbar.warning trough progress {
+                background-color: #f57900;
+                background-image: linear-gradient(to bottom, #ff9e00, #f57900);
+            }
+
+            progressbar.error trough progress {
+                background-color: #c01c28;
+                background-image: linear-gradient(to bottom, #e01b24, #c01c28);
+            }
+
+            progressbar trough {
+                background-color: alpha(@theme_fg_color, 0.15);
+                min-height: 16px;
+            }
         ";
 
         cssProvider.LoadFromData(css, -1);
@@ -552,6 +573,10 @@ public class MainWindow
             _mealPlanBox.Remove(_mealPlanBox.GetFirstChild()!);
         }
 
+        // Daily totals card (sticky at top)
+        var dailyTotalsBox = CreateDailyTotalsSection();
+        _mealPlanBox.Append(dailyTotalsBox);
+
         // Create scrolled window for meal plan
         var scrolledWindow = ScrolledWindow.New();
         scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
@@ -570,10 +595,6 @@ public class MainWindow
             var mealTimeBox = CreateMealTimeSection(mealTime);
             mealPlanContainer.Append(mealTimeBox);
         }
-
-        // Daily totals section
-        var dailyTotalsBox = CreateDailyTotalsSection();
-        mealPlanContainer.Append(dailyTotalsBox);
 
         scrolledWindow.Child = mealPlanContainer;
         _mealPlanBox.Append(scrolledWindow);
@@ -668,30 +689,63 @@ public class MainWindow
 
     private Box CreateDailyTotalsSection()
     {
-        var section = Box.New(Orientation.Vertical, 5);
+        var section = Box.New(Orientation.Vertical, 10);
         section.AddCssClass("card");
-        section.MarginTop = 10;
+        section.MarginStart = 5;
+        section.MarginEnd = 5;
+        section.MarginTop = 5;
+        section.MarginBottom = 10;
 
-        var header = Label.New("Daily Totals");
+        var header = Label.New("Daily Progress");
         header.AddCssClass("title-3");
         header.Halign = Align.Start;
         header.MarginStart = 12;
         header.MarginTop = 8;
         section.Append(header);
 
-        var totalsLabel = Label.New($"{_viewModel.MealPlan.TotalCaloriesDisplay} | {_viewModel.MealPlan.TotalProteinDisplay} | {_viewModel.MealPlan.TotalFatDisplay} | {_viewModel.MealPlan.TotalCarbsDisplay}");
-        totalsLabel.AddCssClass("calculated-value");
-        totalsLabel.Halign = Align.Start;
-        totalsLabel.MarginStart = 12;
-        totalsLabel.MarginBottom = 8;
-        section.Append(totalsLabel);
+        // Current vs Goal
+        var actualCalories = _viewModel.MealPlan.MealPlan.TotalCalories;
+        var goalCalories = _viewModel.CurrentUser.DailyCalories;
+        var percentage = goalCalories > 0 ? (actualCalories / goalCalories) * 100 : 0;
 
-        // Goal comparison
-        var goalLabel = Label.New($"Goal: {_viewModel.CurrentUser.DailyCalories:F0} kcal");
-        goalLabel.Halign = Align.Start;
-        goalLabel.MarginStart = 12;
-        goalLabel.MarginBottom = 8;
-        section.Append(goalLabel);
+        var statusLabel = Label.New($"{actualCalories:F0} / {goalCalories:F0} kcal ({percentage:F0}%)");
+        statusLabel.AddCssClass("title-4");
+        statusLabel.Halign = Align.Start;
+        statusLabel.MarginStart = 12;
+        section.Append(statusLabel);
+
+        // Progress bar with dynamic color
+        var progressBar = ProgressBar.New();
+        progressBar.SetFraction(Math.Min(actualCalories / goalCalories, 1.0));
+        progressBar.MarginStart = 12;
+        progressBar.MarginEnd = 12;
+        progressBar.MarginBottom = 5;
+
+        // Determine color based on how close to goal
+        // Red if too far (< 80% or > 120%), yellow if close (80-90% or 110-120%), green if optimal (90-110%)
+        string colorClass;
+        if (percentage < 80 || percentage > 120)
+        {
+            colorClass = "error"; // Red
+        }
+        else if (percentage < 90 || percentage > 110)
+        {
+            colorClass = "warning"; // Yellow/Orange
+        }
+        else
+        {
+            colorClass = "success"; // Green
+        }
+        progressBar.AddCssClass(colorClass);
+        section.Append(progressBar);
+
+        // Nutritional breakdown
+        var macrosLabel = Label.New($"{_viewModel.MealPlan.TotalProteinDisplay} | {_viewModel.MealPlan.TotalFatDisplay} | {_viewModel.MealPlan.TotalCarbsDisplay}");
+        macrosLabel.AddCssClass("dim-label");
+        macrosLabel.Halign = Align.Start;
+        macrosLabel.MarginStart = 12;
+        macrosLabel.MarginBottom = 8;
+        section.Append(macrosLabel);
 
         return section;
     }
