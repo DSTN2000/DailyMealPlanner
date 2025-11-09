@@ -51,10 +51,7 @@ public class PreferencesDialog
         var contentBox = Box.New(Orientation.Vertical, 0);
 
         var mainBox = Box.New(Orientation.Vertical, 15);
-        mainBox.MarginTop = 20;
-        mainBox.MarginBottom = 20;
-        mainBox.MarginStart = 20;
-        mainBox.MarginEnd = 20;
+        mainBox.AddCssClass("dialog-content");
 
         // Anthropometry section
         mainBox.Append(CreateAnthropometrySection());
@@ -78,10 +75,7 @@ public class PreferencesDialog
 
         // Button box
         var buttonBox = Box.New(Orientation.Horizontal, 10);
-        buttonBox.MarginTop = 10;
-        buttonBox.MarginBottom = 10;
-        buttonBox.MarginStart = 20;
-        buttonBox.MarginEnd = 20;
+        buttonBox.AddCssClass("dialog-button-box");
         buttonBox.Halign = Align.End;
 
         var applyButton = Button.NewWithLabel("Apply");
@@ -211,7 +205,7 @@ public class PreferencesDialog
         var row = Box.New(Orientation.Horizontal, 10);
 
         var label = Label.New(labelText);
-        label.SetSizeRequest(100, -1);
+        label.AddCssClass("form-label");
         label.Halign = Align.Start;
         row.Append(label);
 
@@ -223,7 +217,7 @@ public class PreferencesDialog
         if (!string.IsNullOrEmpty(unit))
         {
             var unitLabel = Label.New(unit);
-            unitLabel.SetSizeRequest(40, -1);
+            unitLabel.AddCssClass("form-unit-label");
             row.Append(unitLabel);
         }
 
@@ -235,7 +229,7 @@ public class PreferencesDialog
         var row = Box.New(Orientation.Horizontal, 10);
 
         var label = Label.New(labelText);
-        label.SetSizeRequest(100, -1);
+        label.AddCssClass("form-label");
         label.Halign = Align.Start;
         row.Append(label);
 
@@ -248,7 +242,7 @@ public class PreferencesDialog
         if (!string.IsNullOrEmpty(unit))
         {
             var unitLabel = Label.New(unit);
-            unitLabel.SetSizeRequest(40, -1);
+            unitLabel.AddCssClass("form-unit-label");
             row.Append(unitLabel);
         }
 

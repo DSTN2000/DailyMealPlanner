@@ -50,10 +50,7 @@ public class DailyMealPlanView
         scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
         scrolledWindow.Vexpand = true;
 
-        _mealTimesContainer.MarginStart = 5;
-        _mealTimesContainer.MarginEnd = 5;
-        _mealTimesContainer.MarginTop = 5;
-        _mealTimesContainer.MarginBottom = 5;
+        _mealTimesContainer.AddCssClass("meal-times-container");
 
         scrolledWindow.Child = _mealTimesContainer;
         _container.Append(scrolledWindow);
@@ -69,40 +66,28 @@ public class DailyMealPlanView
             _dailyTotalsCard.Remove(_dailyTotalsCard.GetFirstChild()!);
         }
 
-        _dailyTotalsCard.AddCssClass("card");
-        _dailyTotalsCard.MarginStart = 5;
-        _dailyTotalsCard.MarginEnd = 5;
-        _dailyTotalsCard.MarginTop = 5;
-        _dailyTotalsCard.MarginBottom = 10;
+        _dailyTotalsCard.AddCssClass("progress-card");
 
         var header = Label.New("Daily Progress");
         header.AddCssClass("title-3");
         header.Halign = Align.Start;
-        header.MarginStart = 12;
-        header.MarginTop = 8;
         _dailyTotalsCard.Append(header);
 
         // Current vs Goal - use ViewModel property
         var statusLabel = Label.New(_viewModel.CalorieProgressDisplay);
-        statusLabel.AddCssClass("title-4");
+        statusLabel.AddCssClass("progress-status");
         statusLabel.Halign = Align.Start;
-        statusLabel.MarginStart = 12;
         _dailyTotalsCard.Append(statusLabel);
 
         // Main calorie progress bar - use ViewModel properties
         var progressBar = ProgressBar.New();
         progressBar.SetFraction(_viewModel.CalorieProgressFraction);
-        progressBar.MarginStart = 12;
-        progressBar.MarginEnd = 12;
-        progressBar.MarginBottom = 5;
         progressBar.AddCssClass(_viewModel.CalorieProgressColorClass);
         _dailyTotalsCard.Append(progressBar);
 
         // Macronutrient progress bars in a single row - use ViewModel properties
         var macrosBox = Box.New(Orientation.Horizontal, 8);
-        macrosBox.MarginStart = 12;
-        macrosBox.MarginEnd = 12;
-        macrosBox.MarginBottom = 8;
+        macrosBox.AddCssClass("progress-card-section");
         macrosBox.Homogeneous = true;
 
         macrosBox.Append(CreateMacroProgressBar(_viewModel.ProteinProgressDisplay, _viewModel.ProteinProgressFraction, _viewModel.ProteinProgressColorClass));

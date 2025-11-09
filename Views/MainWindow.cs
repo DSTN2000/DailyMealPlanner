@@ -82,10 +82,7 @@ public class MainWindow
 
         // Left panel: Product tree view
         var leftPanel = Box.New(Orientation.Vertical, 10);
-        leftPanel.MarginTop = 10;
-        leftPanel.MarginBottom = 10;
-        leftPanel.MarginStart = 10;
-        leftPanel.MarginEnd = 5;
+        leftPanel.AddCssClass("left-panel");
 
         // Header
         var headerLabel = Label.New("Food Catalog");
@@ -104,10 +101,7 @@ public class MainWindow
 
         // Right panel: Meal Plan
         var rightPanel = Box.New(Orientation.Vertical, 10);
-        rightPanel.MarginTop = 10;
-        rightPanel.MarginBottom = 10;
-        rightPanel.MarginStart = 5;
-        rightPanel.MarginEnd = 10;
+        rightPanel.AddCssClass("right-panel");
 
         // Header
         var mealPlanHeader = Label.New("Daily Meal Plan");
@@ -194,10 +188,7 @@ public class MainWindow
 
         // Create a box to hold category views
         var categoriesBox = Box.New(Orientation.Vertical, 5);
-        categoriesBox.MarginStart = 10;
-        categoriesBox.MarginEnd = 10;
-        categoriesBox.MarginTop = 10;
-        categoriesBox.MarginBottom = 10;
+        categoriesBox.AddCssClass("panel-content");
 
         // Create CategoryView for each CategoryViewModel
         foreach (var categoryVm in _viewModel.Categories)

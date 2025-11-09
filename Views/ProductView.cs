@@ -20,10 +20,7 @@ public class ProductView
 
         _container = Box.New(Orientation.Horizontal, 10);
         _container.AddCssClass("card");
-        _container.MarginTop = 2;
-        _container.MarginBottom = 2;
-        _container.MarginStart = 5;
-        _container.MarginEnd = 5;
+        _container.AddCssClass("product-card");
 
         BuildUI();
     }
@@ -41,10 +38,7 @@ public class ProductView
         // Product info box
         var infoBox = Box.New(Orientation.Vertical, 4);
         infoBox.Hexpand = true;
-        infoBox.MarginTop = 8;
-        infoBox.MarginBottom = 8;
-        infoBox.MarginStart = 12;
-        infoBox.MarginEnd = 12;
+        infoBox.AddCssClass("product-card-content");
 
         // Product name
         var nameLabel = Label.New(_viewModel.Name);

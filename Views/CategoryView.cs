@@ -21,8 +21,7 @@ public class CategoryView
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
 
         _expander = Expander.New(_viewModel.Name);
-        _expander.MarginTop = 5;
-        _expander.MarginBottom = 5;
+        _expander.AddCssClass("category-expander");
 
         // Lazy loading: load products when expanded
         // Use OnNotify to monitor "expanded" property changes
@@ -62,8 +61,7 @@ public class CategoryView
         if (_productsContainer != null) return;
 
         _productsContainer = Box.New(Orientation.Vertical, 0);
-        _productsContainer.MarginStart = 10;
-        _productsContainer.MarginEnd = 10;
+        _productsContainer.AddCssClass("expander-content");
 
         // Use subcategory groups from ViewModel (already sorted)
         foreach (var (subcategory, products) in _viewModel.SubcategoryGroups)
@@ -85,11 +83,10 @@ public class CategoryView
     private Expander CreateSubcategoryExpander(string subcategoryName, List<ProductViewModel> products)
     {
         var expander = Expander.New($"{subcategoryName} ({products.Count})");
-        expander.MarginTop = 3;
-        expander.MarginBottom = 3;
+        expander.AddCssClass("subcategory-expander");
 
         var productsBox = Box.New(Orientation.Vertical, 2);
-        productsBox.MarginStart = 10;
+        productsBox.AddCssClass("subcategory-content");
         var isLoaded = false;
 
         // Lazy load products when subcategory is expanded

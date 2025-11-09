@@ -21,10 +21,7 @@ public class MealPlanItemView
     {
         _viewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         _container = Box.New(Orientation.Horizontal, 10);
-        _container.MarginStart = 12;
-        _container.MarginEnd = 12;
-        _container.MarginTop = 4;
-        _container.MarginBottom = 4;
+        _container.AddCssClass("meal-item");
 
         BuildUI();
     }

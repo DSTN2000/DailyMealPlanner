@@ -32,10 +32,7 @@ public class AddProductDialog
     {
         var contentArea = (Box)_dialog.GetContentArea();
         var box = Box.New(Orientation.Vertical, 10);
-        box.MarginStart = 20;
-        box.MarginEnd = 20;
-        box.MarginTop = 20;
-        box.MarginBottom = 20;
+        box.AddCssClass("dialog-content");
 
         // Mealtime selection
         var mealtimeLabel = Label.New("Select Mealtime:");

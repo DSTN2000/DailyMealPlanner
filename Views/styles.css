@@ -1,16 +1,181 @@
 /* Daily Meal Planner - GTK4 CSS Styles */
 
+/* ============================================================================
+   LAYOUT - Main Panels
+   ============================================================================ */
+
+.left-panel {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 10px;
+    margin-right: 5px;
+}
+
+.right-panel {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 5px;
+    margin-right: 10px;
+}
+
+.panel-content {
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+/* ============================================================================
+   CARDS - Container Styling
+   ============================================================================ */
+
 .card {
     background-color: @theme_bg_color;
     border-radius: 8px;
     border: 1px solid alpha(@theme_fg_color, 0.15);
     transition: all 200ms ease-in-out;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
 .card:hover {
     background-color: alpha(@theme_selected_bg_color, 0.1);
     box-shadow: 0 2px 4px alpha(black, 0.1);
 }
+
+.card-content {
+    margin-left: 12px;
+    margin-right: 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+/* Progress card - visually distinct with subtle background */
+.progress-card {
+    background: linear-gradient(135deg,
+        alpha(@theme_selected_bg_color, 0.05) 0%,
+        alpha(@theme_selected_bg_color, 0.02) 100%);
+    border-radius: 12px;
+    border: 2px solid alpha(@theme_selected_bg_color, 0.3);
+    box-shadow: 0 4px 12px alpha(black, 0.08);
+    margin-top: 5px;
+    margin-bottom: 10px;
+    margin-left: 5px;
+    margin-right: 5px;
+    padding: 12px;
+}
+
+.progress-card-header {
+    margin-left: 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.progress-card-section {
+    margin-left: 12px;
+    margin-right: 12px;
+    margin-bottom: 8px;
+}
+
+/* Meal time card */
+.mealtime-card {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.mealtime-header {
+    margin-left: 12px;
+    margin-top: 8px;
+}
+
+.mealtime-totals {
+    margin-left: 12px;
+    margin-bottom: 8px;
+}
+
+.mealtime-empty {
+    margin-left: 12px;
+    margin-bottom: 8px;
+}
+
+/* Product card in catalog - override card margins only */
+.product-card {
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.product-card-content {
+    margin-top: 8px;
+    margin-bottom: 8px;
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+/* ============================================================================
+   EXPANDERS - Category/Subcategory
+   ============================================================================ */
+
+.category-expander {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.expander-content {
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.subcategory-expander {
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 20px;
+}
+
+.subcategory-content {
+    margin-left: 10px;
+}
+
+/* ============================================================================
+   MEAL PLAN ITEMS
+   ============================================================================ */
+
+.meal-item {
+    margin-left: 12px;
+    margin-right: 12px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+/* ============================================================================
+   DIALOGS
+   ============================================================================ */
+
+.dialog-content {
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.dialog-content-compact {
+    margin-left: 20px;
+    margin-right: 20px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.dialog-button-box {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    margin-left: 20px;
+    margin-right: 20px;
+}
+
+/* ============================================================================
+   SCROLLED WINDOWS
+   ============================================================================ */
 
 listview {
     background-color: transparent;
@@ -20,37 +185,131 @@ scrolledwindow {
     background-color: transparent;
 }
 
-.calculated-value {
-    color: #3584e4;
-    font-weight: bold;
+.meal-times-container {
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 5px;
+    margin-bottom: 5px;
 }
 
-/* Progress bar colors */
-progressbar.success trough progress {
-    background-color: #26a269;
-    background-image: linear-gradient(to bottom, #33d17a, #26a269);
-}
+/* ============================================================================
+   PROGRESS BARS - Main Calorie Progress
+   ============================================================================ */
 
-progressbar.warning trough progress {
-    background-color: #f57900;
-    background-image: linear-gradient(to bottom, #ff9e00, #f57900);
-}
-
-progressbar.error trough progress {
-    background-color: #c01c28;
-    background-image: linear-gradient(to bottom, #e01b24, #c01c28);
+progressbar {
+    margin-left: 12px;
+    margin-right: 12px;
+    margin-bottom: 5px;
 }
 
 progressbar trough {
     background-color: alpha(@theme_fg_color, 0.15);
-    min-height: 16px;
+    min-height: 24px;
+    border-radius: 12px;
 }
 
-/* Thin macro progress bars */
+progressbar trough progress {
+    border-radius: 12px;
+    min-height: 24px;
+}
+
+/* Success state (90-110%) */
+progressbar.success trough progress {
+    background: linear-gradient(90deg, #26a269 0%, #33d17a 100%);
+    box-shadow: 0 2px 8px alpha(#26a269, 0.3);
+}
+
+/* Warning state (80-90% or 110-120%) */
+progressbar.warning trough progress {
+    background: linear-gradient(90deg, #f57900 0%, #ff9e00 100%);
+    box-shadow: 0 2px 8px alpha(#f57900, 0.3);
+}
+
+/* Error state (<80% or >120%) */
+progressbar.error trough progress {
+    background: linear-gradient(90deg, #c01c28 0%, #e01b24 100%);
+    box-shadow: 0 2px 8px alpha(#c01c28, 0.3);
+}
+
+/* ============================================================================
+   PROGRESS BARS - Macro Nutrients (Thin)
+   ============================================================================ */
+
 progressbar.macro-progress trough {
-    min-height: 6px;
+    min-height: 8px;
+    border-radius: 4px;
+    background-color: alpha(@theme_fg_color, 0.1);
 }
 
 progressbar.macro-progress trough progress {
-    min-height: 6px;
+    min-height: 8px;
+    border-radius: 4px;
+}
+
+/* ============================================================================
+   LABELS - Typography
+   ============================================================================ */
+
+.dim-label {
+    opacity: 0.7;
+    font-size: 0.9em;
+}
+
+.calculated-value {
+    color: #3584e4;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.progress-status {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: @theme_selected_bg_color;
+}
+
+.empty-state {
+    opacity: 0.5;
+    font-style: italic;
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+button.destructive-action {
+    background-color: alpha(#c01c28, 0.1);
+    color: #c01c28;
+}
+
+button.destructive-action:hover {
+    background-color: alpha(#c01c28, 0.2);
+}
+
+/* ============================================================================
+   FORM ELEMENTS - Preferences Dialog
+   ============================================================================ */
+
+.form-row {
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+.form-label {
+    min-width: 100px;
+}
+
+.form-unit-label {
+    min-width: 40px;
+}
+
+.section-heading {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+
+.heading {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 8px;
 }

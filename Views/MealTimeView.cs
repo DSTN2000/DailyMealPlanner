@@ -20,8 +20,7 @@ public class MealTimeView
 
         _container = Box.New(Orientation.Vertical, 5);
         _container.AddCssClass("card");
-        _container.MarginTop = 5;
-        _container.MarginBottom = 5;
+        _container.AddCssClass("mealtime-card");
 
         _itemsContainer = Box.New(Orientation.Vertical, 0);
 
@@ -48,9 +47,8 @@ public class MealTimeView
         // Header with mealtime name
         var header = Label.New(_viewModel.Name);
         header.AddCssClass("title-3");
+        header.AddCssClass("mealtime-header");
         header.Halign = Align.Start;
-        header.MarginStart = 12;
-        header.MarginTop = 8;
         _container.Append(header);
 
         // Items container
@@ -60,9 +58,8 @@ public class MealTimeView
         // Mealtime totals
         var totalsLabel = Label.New(_viewModel.NutritionSummary);
         totalsLabel.AddCssClass("calculated-value");
+        totalsLabel.AddCssClass("mealtime-totals");
         totalsLabel.Halign = Align.Start;
-        totalsLabel.MarginStart = 12;
-        totalsLabel.MarginBottom = 8;
         _container.Append(totalsLabel);
     }
 
@@ -94,9 +91,8 @@ public class MealTimeView
         {
             var emptyLabel = Label.New("No items yet");
             emptyLabel.AddCssClass("dim-label");
+            emptyLabel.AddCssClass("mealtime-empty");
             emptyLabel.Halign = Align.Start;
-            emptyLabel.MarginStart = 12;
-            emptyLabel.MarginBottom = 8;
             _itemsContainer.Append(emptyLabel);
         }
     }
