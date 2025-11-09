@@ -92,7 +92,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         try
         {
-            MealPlanService.SaveMealPlan(MealPlan.MealPlan);
+            MealPlanService.SaveMealPlan(MealPlan.GetModel());
         }
         catch (Exception ex)
         {

@@ -39,71 +39,33 @@ public class MainWindow
 
     private void LoadCustomCSS()
     {
-        var cssProvider = CssProvider.New();
-        var css = @"
-            .card {
-                background-color: @theme_bg_color;
-                border-radius: 8px;
-                border: 1px solid alpha(@theme_fg_color, 0.15);
-                transition: all 200ms ease-in-out;
+        try
+        {
+            var cssProvider = CssProvider.New();
+            var cssPath = Path.Combine(AppContext.BaseDirectory, "Views", "styles.css");
+
+            if (File.Exists(cssPath))
+            {
+                var css = File.ReadAllText(cssPath);
+                cssProvider.LoadFromData(css, -1);
+
+                Gtk.StyleContext.AddProviderForDisplay(
+                    Gdk.Display.GetDefault()!,
+                    cssProvider,
+                    800 // GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+                );
+
+                Logger.Instance.Information("CSS loaded from {CssPath}", cssPath);
             }
-
-            .card:hover {
-                background-color: alpha(@theme_selected_bg_color, 0.1);
-                box-shadow: 0 2px 4px alpha(black, 0.1);
+            else
+            {
+                Logger.Instance.Warning("CSS file not found at {CssPath}", cssPath);
             }
-
-            listview {
-                background-color: transparent;
-            }
-
-            scrolledwindow {
-                background-color: transparent;
-            }
-
-            .calculated-value {
-                color: #3584e4;
-                font-weight: bold;
-            }
-
-            /* Progress bar colors */
-            progressbar.success trough progress {
-                background-color: #26a269;
-                background-image: linear-gradient(to bottom, #33d17a, #26a269);
-            }
-
-            progressbar.warning trough progress {
-                background-color: #f57900;
-                background-image: linear-gradient(to bottom, #ff9e00, #f57900);
-            }
-
-            progressbar.error trough progress {
-                background-color: #c01c28;
-                background-image: linear-gradient(to bottom, #e01b24, #c01c28);
-            }
-
-            progressbar trough {
-                background-color: alpha(@theme_fg_color, 0.15);
-                min-height: 16px;
-            }
-
-            /* Thin macro progress bars */
-            progressbar.macro-progress trough {
-                min-height: 6px;
-            }
-
-            progressbar.macro-progress trough progress {
-                min-height: 6px;
-            }
-        ";
-
-        cssProvider.LoadFromData(css, -1);
-
-        Gtk.StyleContext.AddProviderForDisplay(
-            Gdk.Display.GetDefault()!,
-            cssProvider,
-            800 // GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
-        );
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to load CSS");
+        }
     }
 
     public void Show()
@@ -559,11 +521,11 @@ public class MainWindow
         {
             // Search for the product by name
             var products = await _viewModel.SearchProductsAsync(productName);
-            var product = products.FirstOrDefault(p => p.Name == productName);
+            var productVm = products.FirstOrDefault(p => p.Name == productName);
 
-            if (product?.Product != null)
+            if (productVm != null)
             {
-                _viewModel.MealPlan.AddProduct(product.Product, mealTimeType, weight);
+                _viewModel.MealPlan.AddProduct(productVm, mealTimeType, weight);
                 BuildMealPlanUI();
                 Logger.Instance.Information("Added {Product} to {MealTime}", productName, mealTimeType);
             }
@@ -609,7 +571,7 @@ public class MainWindow
         _mealPlanBox.Append(scrolledWindow);
     }
 
-    private Box CreateMealTimeSection(Lab4.Models.MealTime mealTime)
+    private Box CreateMealTimeSection(MealTimeViewModel mealTimeVm)
     {
         var section = Box.New(Orientation.Vertical, 5);
         section.AddCssClass("card");
@@ -617,7 +579,7 @@ public class MainWindow
         section.MarginBottom = 5;
 
         // Header with mealtime name
-        var header = Label.New(mealTime.Name);
+        var header = Label.New(mealTimeVm.Name);
         header.AddCssClass("title-3");
         header.Halign = Align.Start;
         header.MarginStart = 12;
@@ -625,11 +587,11 @@ public class MainWindow
         section.Append(header);
 
         // Items list
-        if (mealTime.Items.Count > 0)
+        if (mealTimeVm.HasItems)
         {
-            foreach (var item in mealTime.Items)
+            foreach (var itemVm in mealTimeVm.Items)
             {
-                var itemBox = CreateMealPlanItemRow(mealTime, item);
+                var itemBox = CreateMealPlanItemRow(mealTimeVm, itemVm);
                 section.Append(itemBox);
             }
         }
@@ -644,7 +606,7 @@ public class MainWindow
         }
 
         // Mealtime totals
-        var totalsLabel = Label.New($"{mealTime.TotalCalories:F0} kcal | P: {mealTime.TotalProtein:F1}g | F: {mealTime.TotalFat:F1}g | C: {mealTime.TotalCarbohydrates:F1}g");
+        var totalsLabel = Label.New(mealTimeVm.NutritionSummary);
         totalsLabel.AddCssClass("calculated-value");
         totalsLabel.Halign = Align.Start;
         totalsLabel.MarginStart = 12;
@@ -654,7 +616,7 @@ public class MainWindow
         return section;
     }
 
-    private Box CreateMealPlanItemRow(Lab4.Models.MealTime mealTime, Lab4.Models.MealPlanItem item)
+    private Box CreateMealPlanItemRow(MealTimeViewModel mealTimeVm, MealPlanItemViewModel itemVm)
     {
         var row = Box.New(Orientation.Horizontal, 10);
         row.MarginStart = 12;
@@ -663,7 +625,7 @@ public class MainWindow
         row.MarginBottom = 4;
 
         // Product name
-        var nameLabel = Label.New(item.Product.Name);
+        var nameLabel = Label.New(itemVm.ProductName);
         nameLabel.Halign = Align.Start;
         nameLabel.Hexpand = true;
         nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
@@ -671,11 +633,11 @@ public class MainWindow
 
         // Weight spinner
         var weightSpin = SpinButton.NewWithRange(1, 10000, 1);
-        weightSpin.SetValue(item.Weight);
+        weightSpin.SetValue(itemVm.Weight);
         weightSpin.OnValueChanged += (sender, args) =>
         {
             var newWeight = weightSpin.GetValue();
-            _viewModel.MealPlan.UpdateItemWeight(item, newWeight);
+            _viewModel.MealPlan.UpdateItemWeight(itemVm, newWeight);
             BuildMealPlanUI(); // Rebuild to update totals
         };
         row.Append(weightSpin);
@@ -688,7 +650,7 @@ public class MainWindow
         removeButton.AddCssClass("destructive-action");
         removeButton.OnClicked += (sender, args) =>
         {
-            _viewModel.MealPlan.RemoveItem(mealTime, item);
+            _viewModel.MealPlan.RemoveItem(mealTimeVm, itemVm);
             BuildMealPlanUI();
         };
         row.Append(removeButton);
@@ -713,7 +675,7 @@ public class MainWindow
         section.Append(header);
 
         // Current vs Goal
-        var actualCalories = _viewModel.MealPlan.MealPlan.TotalCalories;
+        var actualCalories = _viewModel.MealPlan.TotalCalories;
         var goalCalories = _viewModel.CurrentUser.DailyCalories;
         var percentage = goalCalories > 0 ? (actualCalories / goalCalories) * 100 : 0;
 
@@ -758,7 +720,7 @@ public class MainWindow
         // Protein progress bar
         var proteinBox = CreateMacroProgressBar(
             "P",
-            _viewModel.MealPlan.MealPlan.TotalProtein,
+            _viewModel.MealPlan.TotalProtein,
             _viewModel.CurrentUser.DailyProtein
         );
         macrosBox.Append(proteinBox);
@@ -766,7 +728,7 @@ public class MainWindow
         // Fat progress bar
         var fatBox = CreateMacroProgressBar(
             "F",
-            _viewModel.MealPlan.MealPlan.TotalFat,
+            _viewModel.MealPlan.TotalFat,
             _viewModel.CurrentUser.DailyFat
         );
         macrosBox.Append(fatBox);
@@ -774,7 +736,7 @@ public class MainWindow
         // Carbohydrates progress bar
         var carbsBox = CreateMacroProgressBar(
             "C",
-            _viewModel.MealPlan.MealPlan.TotalCarbohydrates,
+            _viewModel.MealPlan.TotalCarbohydrates,
             _viewModel.CurrentUser.DailyCarbohydrates
         );
         macrosBox.Append(carbsBox);

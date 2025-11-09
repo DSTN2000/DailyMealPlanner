@@ -7,41 +7,42 @@ using Lab4.Services;
 
 public class DailyMealPlanViewModel : INotifyPropertyChanged
 {
-    private DailyMealPlan _mealPlan;
+    private readonly DailyMealPlan _model;
+    private ObservableCollection<MealTimeViewModel> _mealTimes;
     private bool _isRecalculating = false;
 
-    public DailyMealPlan MealPlan
-    {
-        get => _mealPlan;
-        set
-        {
-            _mealPlan = value;
-            OnPropertyChanged(nameof(MealPlan));
-            OnPropertyChanged(nameof(Date));
-            Recalculate();
-        }
-    }
-
+    // View-friendly properties (NO Model exposure!)
     public DateTime Date
     {
-        get => MealPlan?.Date ?? DateTime.Today;
+        get => _model.Date;
         set
         {
-            if (MealPlan != null)
+            if (_model.Date != value)
             {
-                MealPlan.Date = value;
+                _model.Date = value;
                 OnPropertyChanged(nameof(Date));
+                OnPropertyChanged(nameof(DateDisplay));
             }
         }
     }
 
-    public ObservableCollection<MealTime> MealTimes => new(MealPlan?.MealTimes ?? new List<MealTime>());
+    public string DateDisplay => Date.ToString("dddd, MMMM dd, yyyy");
 
-    // Display properties
-    public double TotalCalories => MealPlan?.TotalCalories ?? 0;
-    public double TotalProtein => MealPlan?.TotalProtein ?? 0;
-    public double TotalFat => MealPlan?.TotalFat ?? 0;
-    public double TotalCarbohydrates => MealPlan?.TotalCarbohydrates ?? 0;
+    public ObservableCollection<MealTimeViewModel> MealTimes
+    {
+        get => _mealTimes;
+        private set
+        {
+            _mealTimes = value;
+            OnPropertyChanged(nameof(MealTimes));
+        }
+    }
+
+    // Nutritional totals
+    public double TotalCalories => _model.TotalCalories;
+    public double TotalProtein => _model.TotalProtein;
+    public double TotalFat => _model.TotalFat;
+    public double TotalCarbohydrates => _model.TotalCarbohydrates;
 
     public string TotalCaloriesDisplay => $"{TotalCalories:F0} kcal";
     public string TotalProteinDisplay => $"P: {TotalProtein:F1}g";
@@ -50,27 +51,41 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public DailyMealPlanViewModel()
+    public DailyMealPlanViewModel() : this(new DailyMealPlan())
     {
-        _mealPlan = new DailyMealPlan();
     }
 
-    public DailyMealPlanViewModel(DailyMealPlan mealPlan)
+    public DailyMealPlanViewModel(DailyMealPlan model)
     {
-        _mealPlan = mealPlan;
+        _model = model ?? throw new ArgumentNullException(nameof(model));
+
+        // Wrap all model mealtimes in ViewModels
+        _mealTimes = new ObservableCollection<MealTimeViewModel>(
+            model.MealTimes.Select(mt => new MealTimeViewModel(mt))
+        );
+
+        // Subscribe to child ViewModel changes
+        foreach (var mealTimeVm in _mealTimes)
+        {
+            mealTimeVm.ItemsChanged += (s, e) => Recalculate();
+        }
     }
 
     /// <summary>
     /// Adds a product to a specific mealtime
     /// </summary>
-    public void AddProduct(Product product, MealTimeType mealTimeType, double weight = 100.0)
+    public void AddProduct(ProductViewModel productVm, MealTimeType mealTimeType, double weight = 100.0)
     {
-        var mealTime = MealPlan.MealTimes.FirstOrDefault(mt => mt.Type == mealTimeType);
-        if (mealTime != null)
+        if (productVm == null) throw new ArgumentNullException(nameof(productVm));
+
+        var mealTimeVm = MealTimes.FirstOrDefault(mt => mt.Type == mealTimeType);
+        if (mealTimeVm != null)
         {
-            var item = new MealPlanItem(product, weight);
-            mealTime.Items.Add(item);
-            Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", product.Name, weight, mealTime.Name);
+            // Get the underlying product (internal access only)
+            var product = productVm.GetModel();
+            mealTimeVm.AddItem(product, weight);
+
+            Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", product.Name, weight, mealTimeVm.Name);
             Recalculate();
         }
     }
@@ -78,24 +93,25 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     /// <summary>
     /// Removes an item from a mealtime
     /// </summary>
-    public void RemoveItem(MealTime mealTime, MealPlanItem item)
+    public void RemoveItem(MealTimeViewModel mealTimeVm, MealPlanItemViewModel itemVm)
     {
-        mealTime.Items.Remove(item);
-        Logger.Instance.Information("Removed item from {MealTime}", mealTime.Name);
+        if (mealTimeVm == null || itemVm == null) return;
+
+        mealTimeVm.RemoveItem(itemVm);
+        Logger.Instance.Information("Removed item from {MealTime}", mealTimeVm.Name);
         Recalculate();
     }
 
     /// <summary>
     /// Updates the weight of an item
     /// </summary>
-    public void UpdateItemWeight(MealPlanItem item, double newWeight)
+    public void UpdateItemWeight(MealPlanItemViewModel itemVm, double newWeight)
     {
-        if (newWeight > 0)
-        {
-            item.Weight = newWeight;
-            Logger.Instance.Information("Updated item weight to {Weight}g", newWeight);
-            Recalculate();
-        }
+        if (itemVm == null || newWeight <= 0) return;
+
+        itemVm.UpdateModel(newWeight);
+        itemVm.Weight = newWeight;  // Triggers WeightChanged event → ItemsChanged → Recalculate
+        Logger.Instance.Information("Updated item weight to {Weight}g", newWeight);
     }
 
     /// <summary>
@@ -103,40 +119,56 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     /// </summary>
     public void AddCustomMealTime(string name)
     {
-        var mealTime = new MealTime(MealTimeType.Custom, name);
-        MealPlan.MealTimes.Add(mealTime);
+        if (string.IsNullOrWhiteSpace(name)) return;
+
+        var modelMealTime = new MealTime(MealTimeType.Custom, name);
+        _model.MealTimes.Add(modelMealTime);
+
+        var mealTimeVm = new MealTimeViewModel(modelMealTime);
+        mealTimeVm.ItemsChanged += (s, e) => Recalculate();
+
+        MealTimes.Add(mealTimeVm);
         Logger.Instance.Information("Added custom mealtime: {Name}", name);
-        OnPropertyChanged(nameof(MealTimes));
+
         Recalculate();
     }
 
     /// <summary>
     /// Removes a mealtime (only custom ones can be removed)
     /// </summary>
-    public void RemoveMealTime(MealTime mealTime)
+    public void RemoveMealTime(MealTimeViewModel mealTimeVm)
     {
-        if (mealTime.Type == MealTimeType.Custom)
-        {
-            MealPlan.MealTimes.Remove(mealTime);
-            Logger.Instance.Information("Removed custom mealtime: {Name}", mealTime.Name);
-            OnPropertyChanged(nameof(MealTimes));
-            Recalculate();
-        }
+        if (mealTimeVm == null || !mealTimeVm.CanRemove) return;
+
+        var modelMealTime = mealTimeVm.GetModel();
+        _model.MealTimes.Remove(modelMealTime);
+        MealTimes.Remove(mealTimeVm);
+
+        Logger.Instance.Information("Removed custom mealtime: {Name}", mealTimeVm.Name);
+        Recalculate();
     }
 
     /// <summary>
     /// Recalculates all nutritional totals (with re-entrancy guard)
     /// </summary>
-    public void Recalculate()
+    private void Recalculate()
     {
         if (_isRecalculating) return;
 
         try
         {
             _isRecalculating = true;
-            NutritionCalculationService.RecalculateMealPlan(MealPlan);
 
-            OnPropertyChanged(nameof(MealTimes));
+            // Recalculate using service
+            NutritionCalculationService.RecalculateMealPlan(_model);
+
+            // Refresh all child ViewModels
+            foreach (var mealTimeVm in MealTimes)
+            {
+                mealTimeVm.RefreshNutrition();
+            }
+
+            // Notify property changes
             OnPropertyChanged(nameof(TotalCalories));
             OnPropertyChanged(nameof(TotalProtein));
             OnPropertyChanged(nameof(TotalFat));
@@ -151,6 +183,11 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
             _isRecalculating = false;
         }
     }
+
+    /// <summary>
+    /// Gets the underlying model (internal - only for Service access when saving)
+    /// </summary>
+    internal DailyMealPlan GetModel() => _model;
 
     protected virtual void OnPropertyChanged(string propertyName)
     {

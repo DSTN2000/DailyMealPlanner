@@ -16,4 +16,10 @@
     <PackageReference Include="Serilog.Sinks.File" Version="*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Views\styles.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
