@@ -9,6 +9,7 @@ public class MainWindow
     private readonly MainWindowViewModel _viewModel;
     private readonly ApplicationWindow _window;
     private Box _contentBox = null!;
+    private Box _mealPlanBox = null!;
 
     public MainWindow(Gtk.Application app)
     {
@@ -116,18 +117,26 @@ public class MainWindow
 
         leftPanel.Append(_contentBox);
 
-        // Right panel: Empty for now
-        var rightPanel = Box.New(Orientation.Vertical, 0);
+        // Right panel: Meal Plan
+        var rightPanel = Box.New(Orientation.Vertical, 10);
         rightPanel.MarginTop = 10;
         rightPanel.MarginBottom = 10;
         rightPanel.MarginStart = 5;
         rightPanel.MarginEnd = 10;
 
-        var placeholderLabel = Label.New("Select a product...");
-        placeholderLabel.AddCssClass("dim-label");
-        placeholderLabel.Valign = Align.Center;
-        placeholderLabel.Halign = Align.Center;
-        rightPanel.Append(placeholderLabel);
+        // Header
+        var mealPlanHeader = Label.New("Daily Meal Plan");
+        mealPlanHeader.AddCssClass("title-2");
+        mealPlanHeader.Halign = Align.Start;
+        rightPanel.Append(mealPlanHeader);
+
+        // Meal plan content area
+        _mealPlanBox = Box.New(Orientation.Vertical, 5);
+        _mealPlanBox.Vexpand = true;
+        rightPanel.Append(_mealPlanBox);
+
+        // Build meal plan UI
+        BuildMealPlanUI();
 
         // Set start child (left - 1/3)
         paned.SetStartChild(leftPanel);
@@ -439,7 +448,251 @@ public class MainWindow
         var nameLabel = card.GetFirstChild() as Label;
         if (nameLabel != null)
         {
-            nameLabel.SetText(name);
+            nameLabel.SetText($"{name} ({calories:F0} kcal)");
         }
+
+        // Make product clickable to add to meal plan
+        var gesture = GestureClick.New();
+        gesture.OnReleased += (sender, args) =>
+        {
+            // Show dialog to select mealtime and weight
+            ShowAddProductDialog(name);
+        };
+        card.AddController(gesture);
+    }
+
+    private void ShowAddProductDialog(string productName)
+    {
+        var dialog = Gtk.Dialog.New();
+        dialog.SetTransientFor(_window);
+        dialog.SetModal(true);
+        dialog.Title = $"Add {productName}";
+        dialog.SetDefaultSize(400, 200);
+
+        var contentArea = (Box)dialog.GetContentArea();
+        var box = Box.New(Orientation.Vertical, 10);
+        box.MarginStart = 20;
+        box.MarginEnd = 20;
+        box.MarginTop = 20;
+        box.MarginBottom = 20;
+
+        // Mealtime selection
+        var mealtimeLabel = Label.New("Select Mealtime:");
+        mealtimeLabel.Halign = Align.Start;
+        box.Append(mealtimeLabel);
+
+        var mealtimeDropdown = DropDown.NewFromStrings(new[] { "Breakfast", "Lunch", "Dinner" });
+        box.Append(mealtimeDropdown);
+
+        // Weight input
+        var weightLabel = Label.New("Weight (grams):");
+        weightLabel.Halign = Align.Start;
+        box.Append(weightLabel);
+
+        var weightSpin = SpinButton.NewWithRange(1, 10000, 1);
+        weightSpin.SetValue(100);
+        box.Append(weightSpin);
+
+        contentArea.Append(box);
+
+        // Add buttons
+        dialog.AddButton("Cancel", (int)ResponseType.Cancel);
+        dialog.AddButton("Add", (int)ResponseType.Accept);
+
+        dialog.OnResponse += async (sender, args) =>
+        {
+            if (args.ResponseId == (int)ResponseType.Accept)
+            {
+                var selectedIndex = mealtimeDropdown.GetSelected();
+                var mealTimeType = selectedIndex switch
+                {
+                    0 => Lab4.Models.MealTimeType.Breakfast,
+                    1 => Lab4.Models.MealTimeType.Lunch,
+                    2 => Lab4.Models.MealTimeType.Dinner,
+                    _ => Lab4.Models.MealTimeType.Breakfast
+                };
+
+                var weight = weightSpin.GetValue();
+
+                // Find the product by name and add it
+                await AddProductToMealPlanAsync(productName, mealTimeType, weight);
+            }
+            dialog.Close();
+        };
+
+        dialog.Show();
+    }
+
+    private async Task AddProductToMealPlanAsync(string productName, Lab4.Models.MealTimeType mealTimeType, double weight)
+    {
+        try
+        {
+            // Search for the product by name
+            var products = await _viewModel.SearchProductsAsync(productName);
+            var product = products.FirstOrDefault(p => p.Name == productName);
+
+            if (product?.Product != null)
+            {
+                _viewModel.MealPlan.AddProduct(product.Product, mealTimeType, weight);
+                BuildMealPlanUI();
+                Logger.Instance.Information("Added {Product} to {MealTime}", productName, mealTimeType);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to add product to meal plan");
+        }
+    }
+
+    private void BuildMealPlanUI()
+    {
+        // Clear existing content
+        while (_mealPlanBox.GetFirstChild() != null)
+        {
+            _mealPlanBox.Remove(_mealPlanBox.GetFirstChild()!);
+        }
+
+        // Create scrolled window for meal plan
+        var scrolledWindow = ScrolledWindow.New();
+        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolledWindow.Vexpand = true;
+
+        // Create container for mealtimes
+        var mealPlanContainer = Box.New(Orientation.Vertical, 10);
+        mealPlanContainer.MarginStart = 5;
+        mealPlanContainer.MarginEnd = 5;
+        mealPlanContainer.MarginTop = 5;
+        mealPlanContainer.MarginBottom = 5;
+
+        // Create section for each mealtime
+        foreach (var mealTime in _viewModel.MealPlan.MealTimes)
+        {
+            var mealTimeBox = CreateMealTimeSection(mealTime);
+            mealPlanContainer.Append(mealTimeBox);
+        }
+
+        // Daily totals section
+        var dailyTotalsBox = CreateDailyTotalsSection();
+        mealPlanContainer.Append(dailyTotalsBox);
+
+        scrolledWindow.Child = mealPlanContainer;
+        _mealPlanBox.Append(scrolledWindow);
+    }
+
+    private Box CreateMealTimeSection(Lab4.Models.MealTime mealTime)
+    {
+        var section = Box.New(Orientation.Vertical, 5);
+        section.AddCssClass("card");
+        section.MarginTop = 5;
+        section.MarginBottom = 5;
+
+        // Header with mealtime name
+        var header = Label.New(mealTime.Name);
+        header.AddCssClass("title-3");
+        header.Halign = Align.Start;
+        header.MarginStart = 12;
+        header.MarginTop = 8;
+        section.Append(header);
+
+        // Items list
+        if (mealTime.Items.Count > 0)
+        {
+            foreach (var item in mealTime.Items)
+            {
+                var itemBox = CreateMealPlanItemRow(mealTime, item);
+                section.Append(itemBox);
+            }
+        }
+        else
+        {
+            var emptyLabel = Label.New("No items yet");
+            emptyLabel.AddCssClass("dim-label");
+            emptyLabel.Halign = Align.Start;
+            emptyLabel.MarginStart = 12;
+            emptyLabel.MarginBottom = 8;
+            section.Append(emptyLabel);
+        }
+
+        // Mealtime totals
+        var totalsLabel = Label.New($"{mealTime.TotalCalories:F0} kcal | P: {mealTime.TotalProtein:F1}g | F: {mealTime.TotalFat:F1}g | C: {mealTime.TotalCarbohydrates:F1}g");
+        totalsLabel.AddCssClass("calculated-value");
+        totalsLabel.Halign = Align.Start;
+        totalsLabel.MarginStart = 12;
+        totalsLabel.MarginBottom = 8;
+        section.Append(totalsLabel);
+
+        return section;
+    }
+
+    private Box CreateMealPlanItemRow(Lab4.Models.MealTime mealTime, Lab4.Models.MealPlanItem item)
+    {
+        var row = Box.New(Orientation.Horizontal, 10);
+        row.MarginStart = 12;
+        row.MarginEnd = 12;
+        row.MarginTop = 4;
+        row.MarginBottom = 4;
+
+        // Product name
+        var nameLabel = Label.New(item.Product.Name);
+        nameLabel.Halign = Align.Start;
+        nameLabel.Hexpand = true;
+        nameLabel.SetEllipsize(Pango.EllipsizeMode.End);
+        row.Append(nameLabel);
+
+        // Weight spinner
+        var weightSpin = SpinButton.NewWithRange(1, 10000, 1);
+        weightSpin.SetValue(item.Weight);
+        weightSpin.OnValueChanged += (sender, args) =>
+        {
+            var newWeight = weightSpin.GetValue();
+            _viewModel.MealPlan.UpdateItemWeight(item, newWeight);
+            BuildMealPlanUI(); // Rebuild to update totals
+        };
+        row.Append(weightSpin);
+
+        var gramsLabel = Label.New("g");
+        row.Append(gramsLabel);
+
+        // Remove button
+        var removeButton = Button.NewWithLabel("Remove");
+        removeButton.AddCssClass("destructive-action");
+        removeButton.OnClicked += (sender, args) =>
+        {
+            _viewModel.MealPlan.RemoveItem(mealTime, item);
+            BuildMealPlanUI();
+        };
+        row.Append(removeButton);
+
+        return row;
+    }
+
+    private Box CreateDailyTotalsSection()
+    {
+        var section = Box.New(Orientation.Vertical, 5);
+        section.AddCssClass("card");
+        section.MarginTop = 10;
+
+        var header = Label.New("Daily Totals");
+        header.AddCssClass("title-3");
+        header.Halign = Align.Start;
+        header.MarginStart = 12;
+        header.MarginTop = 8;
+        section.Append(header);
+
+        var totalsLabel = Label.New($"{_viewModel.MealPlan.TotalCaloriesDisplay} | {_viewModel.MealPlan.TotalProteinDisplay} | {_viewModel.MealPlan.TotalFatDisplay} | {_viewModel.MealPlan.TotalCarbsDisplay}");
+        totalsLabel.AddCssClass("calculated-value");
+        totalsLabel.Halign = Align.Start;
+        totalsLabel.MarginStart = 12;
+        totalsLabel.MarginBottom = 8;
+        section.Append(totalsLabel);
+
+        // Goal comparison
+        var goalLabel = Label.New($"Goal: {_viewModel.CurrentUser.DailyCalories:F0} kcal");
+        goalLabel.Halign = Align.Start;
+        goalLabel.MarginStart = 12;
+        goalLabel.MarginBottom = 8;
+        section.Append(goalLabel);
+
+        return section;
     }
 }

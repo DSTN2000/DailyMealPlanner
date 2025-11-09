@@ -143,4 +143,73 @@ public class CatalogService
         return 0;
     }
 
+    public static async Task<Product?> GetProductByIdAsync(string productId)
+    {
+        if (string.IsNullOrWhiteSpace(productId))
+        {
+            return null;
+        }
+
+        Logger.Instance.Information("Getting product by ID: {ProductId}", productId);
+
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT id, name, description, type, labels, nutrition_100g
+            FROM ""opennutrition_foods.db""
+            WHERE id = @productId
+            LIMIT 1";
+
+        command.Parameters.AddWithValue("@productId", productId);
+
+        using var reader = await command.ExecuteReaderAsync();
+
+        if (await reader.ReadAsync())
+        {
+            var product = ParseProductFromReader(reader);
+            Logger.Instance.Information("Found product: {ProductName}", product.Name);
+            return product;
+        }
+
+        Logger.Instance.Warning("Product not found: {ProductId}", productId);
+        return null;
+    }
+
+    public static async Task<List<Product>> SearchProductsAsync(string searchQuery, int limit = 100)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            return new List<Product>();
+        }
+
+        Logger.Instance.Information("Searching products with query: {Query}", searchQuery);
+
+        using var connection = new SqliteConnection($"Data Source={dbPath}");
+        await connection.OpenAsync();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT id, name, description, type, labels, nutrition_100g
+            FROM ""opennutrition_foods.db""
+            WHERE name LIKE @searchQuery OR description LIKE @searchQuery
+            ORDER BY name
+            LIMIT @limit";
+
+        command.Parameters.AddWithValue("@searchQuery", $"%{searchQuery}%");
+        command.Parameters.AddWithValue("@limit", limit);
+
+        var products = new List<Product>();
+        using var reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            products.Add(ParseProductFromReader(reader));
+        }
+
+        Logger.Instance.Information("Found {Count} products matching query", products.Count);
+        return products;
+    }
+
 }

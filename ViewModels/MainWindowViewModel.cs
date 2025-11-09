@@ -30,6 +30,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     public User CurrentUser { get; private set; }
+    public DailyMealPlanViewModel MealPlan { get; private set; }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -40,6 +41,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
         // Calculate nutritional needs on startup
         NutritionCalculationService.CalculateNutritionalNeeds(CurrentUser);
+
+        // Initialize meal plan for today
+        var savedPlan = MealPlanService.LoadMealPlan(DateTime.Today);
+        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan());
     }
 
     public void SaveUserConfiguration()
@@ -75,6 +80,52 @@ public class MainWindowViewModel : INotifyPropertyChanged
     {
         Logger.Instance.Information("Loading products for category: {Category}", categoryName);
         var products = await CatalogService.GetProductsByCategoryAsync(categoryName);
+        return products.Select(p => new ProductViewModel(p)).ToList();
+    }
+
+    public async Task<Product?> GetProductByIdAsync(string productId)
+    {
+        return await CatalogService.GetProductByIdAsync(productId);
+    }
+
+    public void SaveMealPlan()
+    {
+        try
+        {
+            MealPlanService.SaveMealPlan(MealPlan.MealPlan);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to save meal plan");
+        }
+    }
+
+    public void LoadMealPlan(DateTime date)
+    {
+        try
+        {
+            var plan = MealPlanService.LoadMealPlan(date);
+            if (plan != null)
+            {
+                MealPlan = new DailyMealPlanViewModel(plan);
+                OnPropertyChanged(nameof(MealPlan));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to load meal plan");
+        }
+    }
+
+    public async Task<List<ProductViewModel>> SearchProductsAsync(string searchQuery)
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery))
+        {
+            return new List<ProductViewModel>();
+        }
+
+        Logger.Instance.Information("Searching products with query: {Query}", searchQuery);
+        var products = await CatalogService.SearchProductsAsync(searchQuery);
         return products.Select(p => new ProductViewModel(p)).ToList();
     }
 }
