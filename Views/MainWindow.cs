@@ -86,6 +86,15 @@ public class MainWindow
                 background-color: alpha(@theme_fg_color, 0.15);
                 min-height: 16px;
             }
+
+            /* Thin macro progress bars */
+            progressbar.macro-progress trough {
+                min-height: 6px;
+            }
+
+            progressbar.macro-progress trough progress {
+                min-height: 6px;
+            }
         ";
 
         cssProvider.LoadFromData(css, -1);
@@ -739,14 +748,76 @@ public class MainWindow
         progressBar.AddCssClass(colorClass);
         section.Append(progressBar);
 
-        // Nutritional breakdown
-        var macrosLabel = Label.New($"{_viewModel.MealPlan.TotalProteinDisplay} | {_viewModel.MealPlan.TotalFatDisplay} | {_viewModel.MealPlan.TotalCarbsDisplay}");
-        macrosLabel.AddCssClass("dim-label");
-        macrosLabel.Halign = Align.Start;
-        macrosLabel.MarginStart = 12;
-        macrosLabel.MarginBottom = 8;
-        section.Append(macrosLabel);
+        // Macronutrient progress bars in a single row
+        var macrosBox = Box.New(Orientation.Horizontal, 8);
+        macrosBox.MarginStart = 12;
+        macrosBox.MarginEnd = 12;
+        macrosBox.MarginBottom = 8;
+        macrosBox.Homogeneous = true;
+
+        // Protein progress bar
+        var proteinBox = CreateMacroProgressBar(
+            "P",
+            _viewModel.MealPlan.MealPlan.TotalProtein,
+            _viewModel.CurrentUser.DailyProtein
+        );
+        macrosBox.Append(proteinBox);
+
+        // Fat progress bar
+        var fatBox = CreateMacroProgressBar(
+            "F",
+            _viewModel.MealPlan.MealPlan.TotalFat,
+            _viewModel.CurrentUser.DailyFat
+        );
+        macrosBox.Append(fatBox);
+
+        // Carbohydrates progress bar
+        var carbsBox = CreateMacroProgressBar(
+            "C",
+            _viewModel.MealPlan.MealPlan.TotalCarbohydrates,
+            _viewModel.CurrentUser.DailyCarbohydrates
+        );
+        macrosBox.Append(carbsBox);
+
+        section.Append(macrosBox);
 
         return section;
+    }
+
+    private Box CreateMacroProgressBar(string label, double actual, double goal)
+    {
+        var box = Box.New(Orientation.Vertical, 2);
+
+        // Label with values
+        var percentage = goal > 0 ? (actual / goal) * 100 : 0;
+        var macroLabel = Label.New($"{label}: {actual:F0}/{goal:F0}g");
+        macroLabel.AddCssClass("caption");
+        macroLabel.Halign = Align.Center;
+        box.Append(macroLabel);
+
+        // Thin progress bar
+        var progressBar = ProgressBar.New();
+        progressBar.SetFraction(Math.Min(actual / goal, 1.0));
+        progressBar.AddCssClass("macro-progress");
+
+        // Color based on goal achievement
+        string colorClass;
+        if (percentage < 80 || percentage > 120)
+        {
+            colorClass = "error";
+        }
+        else if (percentage < 90 || percentage > 110)
+        {
+            colorClass = "warning";
+        }
+        else
+        {
+            colorClass = "success";
+        }
+        progressBar.AddCssClass(colorClass);
+
+        box.Append(progressBar);
+
+        return box;
     }
 }
