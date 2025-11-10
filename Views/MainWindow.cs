@@ -38,12 +38,19 @@ public class MainWindow
         _searchHandler.ResultsUpdated += OnSearchResultsUpdated;
     }
 
-    private void OnSearchResultsUpdated(object? sender, List<ProductViewModel> results)
+    private void OnSearchResultsUpdated(object? sender, (string Query, List<ProductViewModel> Results) args)
     {
         // Update UI on main thread
         GLib.Functions.IdleAdd(0, () =>
         {
-            UpdateSearchResultsUI(results);
+            if (string.IsNullOrWhiteSpace(args.Query))
+            {
+                UpdateCategoriesView();
+            }
+            else
+            {
+                UpdateSearchResultsUI(args.Results);
+            }
             return false;
         });
     }
@@ -290,19 +297,7 @@ public class MainWindow
         searchEntry.OnSearchChanged += (sender, args) =>
         {
             var query = searchEntry.GetText();
-
-            if (string.IsNullOrWhiteSpace(query))
-            {
-                // Show categories when search is cleared
-                UpdateCategoriesView();
-                return;
-            }
-
-            if (query.Length >= 2)
-            {
-                // Delegate search to SearchHandler
-                _searchHandler.Search(query);
-            }
+            _searchHandler.Search(query);
         };
 
         searchContainer.Append(searchEntry);
