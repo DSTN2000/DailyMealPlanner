@@ -2,30 +2,44 @@ namespace Lab4.Views;
 
 using Gtk;
 using Lab4.ViewModels;
+using Lab4.Views.Dialogs;
 
 public class MainWindow
 {
     private readonly MainWindowViewModel _viewModel;
+    private readonly SearchHandler _searchHandler;
     private readonly ApplicationWindow _window;
     private Box _contentBox = null!;
     private Box _mealPlanBox = null!;
     private DailyMealPlanView? _mealPlanView;
-    private System.Timers.Timer? _searchDebounceTimer;
-    private string _lastSearchQuery = string.Empty;
-    private List<ProductViewModel> _currentSearchResults = new();
-    private int _loadedResultsCount = 0;
-    private const int ResultsPageSize = 50;
 
     public MainWindow(Gtk.Application app)
     {
         _viewModel = new MainWindowViewModel();
+        _searchHandler = new SearchHandler(_viewModel);
         _window = ApplicationWindow.New(app);
         _window.Title = "Daily Meal Planner";
         _window.SetDefaultSize(900, 600);
 
         LoadCustomCSS();
         SetupActions();
+        SetupSearchHandler();
         BuildUI();
+    }
+
+    private void SetupSearchHandler()
+    {
+        _searchHandler.ResultsUpdated += OnSearchResultsUpdated;
+    }
+
+    private void OnSearchResultsUpdated(object? sender, List<ProductViewModel> results)
+    {
+        // Update UI on main thread
+        GLib.Functions.IdleAdd(0, () =>
+        {
+            UpdateSearchResultsUI(results);
+            return false;
+        });
     }
 
     private void SetupActions()
@@ -261,139 +275,50 @@ public class MainWindow
     {
         var searchContainer = Box.New(Orientation.Vertical, 5);
 
-        // Search entry
         var searchEntry = SearchEntry.New();
         searchEntry.SetPlaceholderText("Search products...");
         searchEntry.Hexpand = true;
 
-        // Initialize debounce timer (300ms delay)
-        _searchDebounceTimer = new System.Timers.Timer(300)
-        {
-            AutoReset = false
-        };
-        _searchDebounceTimer.Elapsed += (sender, args) =>
-        {
-            var query = searchEntry.GetText();
-
-            // Execute on main thread
-            GLib.Functions.IdleAdd(0, () =>
-            {
-                _ = PerformSearchAsync(query);
-                return false;
-            });
-        };
-
-        // Handle search activation (when user presses Enter)
-        searchEntry.OnActivate += async (sender, args) =>
-        {
-            // Stop debounce timer and search immediately
-            _searchDebounceTimer?.Stop();
-
-            var query = searchEntry.GetText();
-            await PerformSearchAsync(query);
-        };
-
-        // Handle search changed (debounced real-time search)
+        // Handle search changed - delegate to SearchHandler
         searchEntry.OnSearchChanged += (sender, args) =>
         {
             var query = searchEntry.GetText();
 
-            // Stop any previous timer
-            _searchDebounceTimer?.Stop();
-
-            // Only search if query is at least 2 characters
             if (string.IsNullOrWhiteSpace(query))
             {
-                // Reset last search query and show categories immediately if search is cleared
-                _lastSearchQuery = string.Empty;
+                // Show categories when search is cleared
                 UpdateCategoriesView();
                 return;
             }
 
-            if (query.Length < 2)
+            if (query.Length >= 2)
             {
-                return;
+                // Delegate search to SearchHandler
+                _searchHandler.Search(query);
             }
-
-            // Start debounce timer
-            _searchDebounceTimer?.Start();
         };
 
         searchContainer.Append(searchEntry);
         return searchContainer;
     }
 
-    private async Task PerformSearchAsync(string query)
+    private void UpdateSearchResultsUI(List<ProductViewModel> results)
     {
-        // Prevent duplicate searches with the same query
-        if (query == _lastSearchQuery)
+        // Clear content box
+        while (_contentBox.GetFirstChild() != null)
         {
+            _contentBox.Remove(_contentBox.GetFirstChild()!);
+        }
+
+        // Display results
+        if (results.Count == 0)
+        {
+            var noResultsLabel = Label.New("No products found");
+            noResultsLabel.AddCssClass("dim-label");
+            _contentBox.Append(noResultsLabel);
             return;
         }
 
-        _lastSearchQuery = query;
-
-        if (string.IsNullOrWhiteSpace(query))
-        {
-            _currentSearchResults.Clear();
-            _loadedResultsCount = 0;
-            UpdateCategoriesView();
-            return;
-        }
-
-        try
-        {
-            // Clear content box
-            while (_contentBox.GetFirstChild() != null)
-            {
-                _contentBox.Remove(_contentBox.GetFirstChild()!);
-            }
-
-            // Show loading
-            var loadingLabel = Label.New("Searching...");
-            _contentBox.Append(loadingLabel);
-
-            // Perform search
-            var results = await _viewModel.SearchProductsAsync(query);
-
-            // Store results for lazy loading
-            _currentSearchResults = results;
-            _loadedResultsCount = 0;
-
-            // Clear loading
-            while (_contentBox.GetFirstChild() != null)
-            {
-                _contentBox.Remove(_contentBox.GetFirstChild()!);
-            }
-
-            // Display results
-            if (results.Count == 0)
-            {
-                var noResultsLabel = Label.New($"No products found for '{query}'");
-                noResultsLabel.AddCssClass("dim-label");
-                _contentBox.Append(noResultsLabel);
-            }
-            else
-            {
-                DisplaySearchResults();
-            }
-        }
-        catch (Exception ex)
-        {
-            // Clear content and show error
-            while (_contentBox.GetFirstChild() != null)
-            {
-                _contentBox.Remove(_contentBox.GetFirstChild()!);
-            }
-
-            var errorLabel = Label.New($"Search failed: {ex.Message}");
-            errorLabel.AddCssClass("error");
-            _contentBox.Append(errorLabel);
-        }
-    }
-
-    private void DisplaySearchResults()
-    {
         // Create scrolled window for results
         var scrolledWindow = ScrolledWindow.New();
         scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
@@ -404,48 +329,15 @@ public class MainWindow
         resultsBox.AddCssClass("panel-content");
 
         // Add result count
-        var countLabel = Label.New($"Found {_currentSearchResults.Count} products");
+        var totalResults = _searchHandler.CurrentResults.Count;
+        var countLabel = Label.New($"Showing {results.Count} of {totalResults} products");
         countLabel.AddCssClass("dim-label");
         countLabel.Halign = Align.Start;
         resultsBox.Append(countLabel);
 
-        // Load initial page of results
-        LoadMoreResults(resultsBox);
-
-        scrolledWindow.Child = resultsBox;
-
-        // Add scroll event to detect when user reaches bottom
-        var scrollAdjustment = scrolledWindow.GetVadjustment();
-        scrollAdjustment.OnValueChanged += (sender, args) =>
+        // Display products
+        foreach (var productVm in results)
         {
-            var adj = scrolledWindow.GetVadjustment();
-            var nearBottom = adj.GetValue() + adj.GetPageSize() >= adj.GetUpper() - 100;
-
-            if (nearBottom && _loadedResultsCount < _currentSearchResults.Count)
-            {
-                LoadMoreResults(resultsBox);
-            }
-        };
-
-        _contentBox.Append(scrolledWindow);
-    }
-
-    private void LoadMoreResults(Box resultsBox)
-    {
-        var itemsToLoad = Math.Min(ResultsPageSize, _currentSearchResults.Count - _loadedResultsCount);
-
-        if (itemsToLoad <= 0)
-        {
-            return;
-        }
-
-        var startIndex = _loadedResultsCount;
-        var endIndex = startIndex + itemsToLoad;
-
-        for (int i = startIndex; i < endIndex; i++)
-        {
-            var productVm = _currentSearchResults[i];
-
             var productButton = Button.New();
             productButton.AddCssClass("flat");
             productButton.Hexpand = true;
@@ -467,58 +359,48 @@ public class MainWindow
             productButton.Child = productBox;
 
             // Handle click
-            var productName = productVm.Name; // Capture for closure
+            var productName = productVm.Name;
             productButton.OnClicked += (s, e) => ShowAddProductDialog(productName);
 
             resultsBox.Append(productButton);
         }
 
-        _loadedResultsCount += itemsToLoad;
+        // Add "Load more" indicator if there are more results
+        if (_searchHandler.CanLoadMore())
+        {
+            var loadMoreLabel = Label.New("Scroll down to load more...");
+            loadMoreLabel.AddCssClass("dim-label");
+            loadMoreLabel.Halign = Align.Start;
+            resultsBox.Append(loadMoreLabel);
+        }
 
-        // Add "Loading more..." indicator if there are more results
-        if (_loadedResultsCount < _currentSearchResults.Count)
+        scrolledWindow.Child = resultsBox;
+
+        // Add scroll event to load more results
+        var scrollAdjustment = scrolledWindow.GetVadjustment();
+        scrollAdjustment.OnValueChanged += async (sender, args) =>
         {
-            var loadingMoreLabel = Label.New($"Showing {_loadedResultsCount} of {_currentSearchResults.Count} results. Scroll down for more...");
-            loadingMoreLabel.AddCssClass("dim-label");
-            loadingMoreLabel.Halign = Align.Start;
-            resultsBox.Append(loadingMoreLabel);
-        }
-        else if (_currentSearchResults.Count > ResultsPageSize)
-        {
-            var allLoadedLabel = Label.New($"All {_currentSearchResults.Count} results loaded");
-            allLoadedLabel.AddCssClass("dim-label");
-            allLoadedLabel.Halign = Align.Start;
-            resultsBox.Append(allLoadedLabel);
-        }
+            var adj = scrolledWindow.GetVadjustment();
+            var nearBottom = adj.GetValue() + adj.GetPageSize() >= adj.GetUpper() - 100;
+
+            if (nearBottom && _searchHandler.CanLoadMore())
+            {
+                await _searchHandler.LoadMoreResultsAsync();
+            }
+        };
+
+        _contentBox.Append(scrolledWindow);
     }
 
     private void ExportMealPlan()
     {
-        var dialog = Gtk.FileDialog.New();
-        dialog.SetTitle("Export Meal Plan to XML");
-        dialog.SetModal(true);
-
-        // Create file filters
-        var filters = Gio.ListStore.New(Gtk.FileFilter.GetGType());
-
-        // XML filter
-        var xmlFilter = Gtk.FileFilter.New();
-        xmlFilter.SetName("XML Files");
-        xmlFilter.AddPattern("*.xml");
-        filters.Append(xmlFilter);
-
-        // All files filter
-        var allFilter = Gtk.FileFilter.New();
-        allFilter.SetName("All Files");
-        allFilter.AddPattern("*");
-        filters.Append(allFilter);
-
-        dialog.SetFilters(filters);
-        dialog.SetDefaultFilter(xmlFilter);
-
-        // Set initial file name
         var date = _viewModel.MealPlan.GetModel().Date.ToString("yyyy-MM-dd");
-        dialog.SetInitialName($"mealplan_{date}.xml");
+        var dialog = FileDialogHelper.CreateSaveDialog(
+            "Export Meal Plan to XML",
+            $"mealplan_{date}.xml",
+            ("XML Files", new[] { "*.xml" }),
+            ("All Files", new[] { "*" })
+        );
 
         // Show save dialog
         _ = dialog.SaveAsync(_window).ContinueWith(task =>
@@ -575,27 +457,11 @@ public class MainWindow
 
     private void ImportMealPlan()
     {
-        var dialog = Gtk.FileDialog.New();
-        dialog.SetTitle("Import Meal Plan from XML");
-        dialog.SetModal(true);
-
-        // Create file filters
-        var filters = Gio.ListStore.New(Gtk.FileFilter.GetGType());
-
-        // XML filter
-        var xmlFilter = Gtk.FileFilter.New();
-        xmlFilter.SetName("XML Files");
-        xmlFilter.AddPattern("*.xml");
-        filters.Append(xmlFilter);
-
-        // All files filter
-        var allFilter = Gtk.FileFilter.New();
-        allFilter.SetName("All Files");
-        allFilter.AddPattern("*");
-        filters.Append(allFilter);
-
-        dialog.SetFilters(filters);
-        dialog.SetDefaultFilter(xmlFilter);
+        var dialog = FileDialogHelper.CreateOpenDialog(
+            "Import Meal Plan from XML",
+            ("XML Files", new[] { "*.xml" }),
+            ("All Files", new[] { "*" })
+        );
 
         // Show open dialog
         _ = dialog.OpenAsync(_window).ContinueWith(task =>
@@ -658,15 +524,13 @@ public class MainWindow
     private void ShowInfoDialog(string title, string message)
     {
         Services.Logger.Instance.Information("{Title}: {Message}", title, message);
-        // Simple console output - GTK4 MessageDialog API is complex
-        Console.WriteLine($"{title}: {message}");
+        Dialogs.MessageDialog.ShowInfo(_window, title, message);
     }
 
     private void ShowErrorDialog(string title, string message)
     {
         Services.Logger.Instance.Error("{Title}: {Message}", title, message);
-        // Simple console output - GTK4 MessageDialog API is complex
-        Console.Error.WriteLine($"{title}: {message}");
+        Dialogs.MessageDialog.ShowError(_window, title, message);
     }
 
 }
