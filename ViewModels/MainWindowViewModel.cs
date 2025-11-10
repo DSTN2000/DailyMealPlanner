@@ -32,6 +32,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public User CurrentUser { get; private set; }
     public DailyMealPlanViewModel MealPlan { get; private set; }
 
+    public void UpdateMealPlan(DailyMealPlan newPlan)
+    {
+        MealPlan = new DailyMealPlanViewModel(newPlan, CurrentUser);
+        OnPropertyChanged(nameof(MealPlan));
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public MainWindowViewModel()

@@ -37,8 +37,17 @@ public class MainWindow
             var preferencesDialog = new PreferencesDialog(_window, _viewModel);
             preferencesDialog.Show();
         };
-
         _window.AddAction(settingsAction);
+
+        // Create export action
+        var exportAction = Gio.SimpleAction.New("export", null);
+        exportAction.OnActivate += (sender, args) => ExportMealPlan();
+        _window.AddAction(exportAction);
+
+        // Create import action
+        var importAction = Gio.SimpleAction.New("import", null);
+        importAction.OnActivate += (sender, args) => ImportMealPlan();
+        _window.AddAction(importAction);
     }
 
     private void LoadCustomCSS()
@@ -148,10 +157,15 @@ public class MainWindow
         // Create menu model
         var menu = Gio.Menu.New();
 
+        // Create File submenu
+        var fileMenu = Gio.Menu.New();
+        fileMenu.Append("Export Meal Plan...", "win.export");
+        fileMenu.Append("Import Meal Plan...", "win.import");
+        menu.AppendSubmenu("File", fileMenu);
+
         // Create Preferences submenu
         var preferencesMenu = Gio.Menu.New();
         preferencesMenu.Append("Edit Preferences", "win.settings");
-
         menu.AppendSubmenu("Preferences", preferencesMenu);
 
         // Create PopoverMenuBar from model
@@ -476,6 +490,183 @@ public class MainWindow
             allLoadedLabel.Halign = Align.Start;
             resultsBox.Append(allLoadedLabel);
         }
+    }
+
+    private void ExportMealPlan()
+    {
+        var dialog = Gtk.FileDialog.New();
+        dialog.SetTitle("Export Meal Plan to XML");
+        dialog.SetModal(true);
+
+        // Create file filters
+        var filters = Gio.ListStore.New(Gtk.FileFilter.GetGType());
+
+        // XML filter
+        var xmlFilter = Gtk.FileFilter.New();
+        xmlFilter.SetName("XML Files");
+        xmlFilter.AddPattern("*.xml");
+        filters.Append(xmlFilter);
+
+        // All files filter
+        var allFilter = Gtk.FileFilter.New();
+        allFilter.SetName("All Files");
+        allFilter.AddPattern("*");
+        filters.Append(allFilter);
+
+        dialog.SetFilters(filters);
+        dialog.SetDefaultFilter(xmlFilter);
+
+        // Set initial file name
+        var date = _viewModel.MealPlan.GetModel().Date.ToString("yyyy-MM-dd");
+        dialog.SetInitialName($"mealplan_{date}.xml");
+
+        // Show save dialog
+        _ = dialog.SaveAsync(_window).ContinueWith(task =>
+        {
+            try
+            {
+                var file = task.Result;
+                if (file != null)
+                {
+                    var filePath = file.GetPath();
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        GLib.Functions.IdleAdd(0, () =>
+                        {
+                            ExportToFile(filePath);
+                            return false;
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Services.Logger.Instance.Error(ex, "Failed to export meal plan");
+                GLib.Functions.IdleAdd(0, () =>
+                        {
+                    ShowErrorDialog("Export Failed", $"Failed to export meal plan: {ex.Message}");
+                    return false;
+                });
+            }
+        });
+    }
+
+    private void ExportToFile(string filePath)
+    {
+        try
+        {
+            // Ensure file has .xml extension
+            if (!filePath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+            {
+                filePath += ".xml";
+            }
+
+            var mealPlan = _viewModel.MealPlan.GetModel();
+            Services.ExportService.ExportToXml(mealPlan, filePath);
+
+            ShowInfoDialog("Export Successful", $"Meal plan exported to:\n{filePath}");
+        }
+        catch (Exception ex)
+        {
+            Services.Logger.Instance.Error(ex, "Failed to export to file: {FilePath}", filePath);
+            ShowErrorDialog("Export Failed", $"Failed to export meal plan: {ex.Message}");
+        }
+    }
+
+    private void ImportMealPlan()
+    {
+        var dialog = Gtk.FileDialog.New();
+        dialog.SetTitle("Import Meal Plan from XML");
+        dialog.SetModal(true);
+
+        // Create file filters
+        var filters = Gio.ListStore.New(Gtk.FileFilter.GetGType());
+
+        // XML filter
+        var xmlFilter = Gtk.FileFilter.New();
+        xmlFilter.SetName("XML Files");
+        xmlFilter.AddPattern("*.xml");
+        filters.Append(xmlFilter);
+
+        // All files filter
+        var allFilter = Gtk.FileFilter.New();
+        allFilter.SetName("All Files");
+        allFilter.AddPattern("*");
+        filters.Append(allFilter);
+
+        dialog.SetFilters(filters);
+        dialog.SetDefaultFilter(xmlFilter);
+
+        // Show open dialog
+        _ = dialog.OpenAsync(_window).ContinueWith(task =>
+        {
+            try
+            {
+                var file = task.Result;
+                if (file != null)
+                {
+                    var filePath = file.GetPath();
+                    if (!string.IsNullOrEmpty(filePath))
+                    {
+                        GLib.Functions.IdleAdd(0, () =>
+                        {
+                            ImportFromFile(filePath);
+                            return false;
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Services.Logger.Instance.Error(ex, "Failed to import meal plan");
+                GLib.Functions.IdleAdd(0, () =>
+                {
+                    ShowErrorDialog("Import Failed", $"Failed to import meal plan: {ex.Message}");
+                    return false;
+                });
+            }
+        });
+    }
+
+    private void ImportFromFile(string filePath)
+    {
+        try
+        {
+            // Load the meal plan from XML file
+            var loadedPlan = Services.ExportService.ImportFromXml(filePath);
+
+            if (loadedPlan != null)
+            {
+                // Update the view model with the loaded plan
+                _viewModel.UpdateMealPlan(loadedPlan);
+                BuildMealPlanUI();
+
+                ShowInfoDialog("Import Successful", $"Meal plan imported from:\n{filePath}");
+            }
+            else
+            {
+                ShowErrorDialog("Import Failed", "Failed to load meal plan from file.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Services.Logger.Instance.Error(ex, "Failed to import from file: {FilePath}", filePath);
+            ShowErrorDialog("Import Failed", $"Failed to import meal plan: {ex.Message}");
+        }
+    }
+
+    private void ShowInfoDialog(string title, string message)
+    {
+        Services.Logger.Instance.Information("{Title}: {Message}", title, message);
+        // Simple console output - GTK4 MessageDialog API is complex
+        Console.WriteLine($"{title}: {message}");
+    }
+
+    private void ShowErrorDialog(string title, string message)
+    {
+        Services.Logger.Instance.Error("{Title}: {Message}", title, message);
+        // Simple console output - GTK4 MessageDialog API is complex
+        Console.Error.WriteLine($"{title}: {message}");
     }
 
 }

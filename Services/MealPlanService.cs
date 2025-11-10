@@ -110,4 +110,33 @@ public class MealPlanService
             return new List<DateTime>();
         }
     }
+
+    public static DailyMealPlan? LoadMealPlanFromFile(string filePath)
+    {
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                Logger.Instance.Warning("File not found: {FilePath}", filePath);
+                return null;
+            }
+
+            var json = File.ReadAllText(filePath);
+            var mealPlan = JsonSerializer.Deserialize<DailyMealPlan>(json);
+
+            if (mealPlan != null)
+            {
+                // Recalculate totals after loading
+                NutritionCalculationService.RecalculateMealPlan(mealPlan);
+                Logger.Instance.Information("Meal plan loaded from {Path}", filePath);
+            }
+
+            return mealPlan;
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to load meal plan from file: {FilePath}", filePath);
+            return null;
+        }
+    }
 }
