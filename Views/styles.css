@@ -113,6 +113,13 @@
     margin-right: 12px;
 }
 
+/* Product list item - borders to separate items */
+.product-list-item {
+    border: 1px solid alpha(@theme_fg_color, 0.1);
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
 /* ============================================================================
    EXPANDERS - Category/Subcategory
    ============================================================================ */
@@ -183,6 +190,12 @@ listview {
 
 scrolledwindow {
     background-color: transparent;
+}
+
+/* Product list scrolled window - hide horizontal scrollbar */
+.product-list-scroll scrollbar.horizontal {
+    min-height: 0;
+    opacity: 0;
 }
 
 .meal-times-container {

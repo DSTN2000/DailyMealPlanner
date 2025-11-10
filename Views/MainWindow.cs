@@ -220,7 +220,8 @@ public class MainWindow
 
         // Create scrolled window
         var scrolledWindow = ScrolledWindow.New();
-        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolledWindow.SetPolicy(PolicyType.Never, PolicyType.Automatic); // No horizontal scroll
+        scrolledWindow.SetPlacement(CornerType.TopLeft); // Scrollbar on left
         scrolledWindow.Vexpand = true;
 
         // Create a box to hold category views
@@ -321,74 +322,16 @@ public class MainWindow
 
         // Create scrolled window for results
         var scrolledWindow = ScrolledWindow.New();
-        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolledWindow.SetPolicy(PolicyType.Never, PolicyType.Automatic); // No horizontal scroll
         scrolledWindow.Vexpand = true;
+        scrolledWindow.SetPlacement(CornerType.TopLeft); // Scrollbar on left
+        scrolledWindow.AddCssClass("product-list-scroll");
 
-        // Create results box
-        var resultsBox = Box.New(Orientation.Vertical, 5);
-        resultsBox.AddCssClass("panel-content");
+        // Use ProductListView for displaying results
+        var productListView = new ProductListView(_searchHandler.CurrentResults, showCount: true, showCategory: true);
+        productListView.ProductClicked += (s, productVm) => ShowAddProductDialog(productVm);
 
-        // Add result count
-        var totalResults = _searchHandler.CurrentResults.Count;
-        var countLabel = Label.New($"Showing {results.Count} of {totalResults} products");
-        countLabel.AddCssClass("dim-label");
-        countLabel.Halign = Align.Start;
-        resultsBox.Append(countLabel);
-
-        // Display products
-        foreach (var productVm in results)
-        {
-            var productButton = Button.New();
-            productButton.AddCssClass("flat");
-            productButton.Hexpand = true;
-
-            var productBox = Box.New(Orientation.Vertical, 3);
-            productBox.Halign = Align.Start;
-
-            var nameLabel = Label.New(productVm.Name);
-            nameLabel.AddCssClass("product-name");
-            nameLabel.Halign = Align.Start;
-            nameLabel.Wrap = true;
-            productBox.Append(nameLabel);
-
-            var infoLabel = Label.New($"{productVm.CaloriesDisplay} • {productVm.Category}");
-            infoLabel.AddCssClass("dim-label");
-            infoLabel.Halign = Align.Start;
-            productBox.Append(infoLabel);
-
-            productButton.Child = productBox;
-
-            // Handle click - capture productVm for closure
-            var capturedProductVm = productVm;
-            productButton.OnClicked += (s, e) => ShowAddProductDialog(capturedProductVm);
-
-            resultsBox.Append(productButton);
-        }
-
-        // Add "Load more" indicator if there are more results
-        if (_searchHandler.CanLoadMore())
-        {
-            var loadMoreLabel = Label.New("Scroll down to load more...");
-            loadMoreLabel.AddCssClass("dim-label");
-            loadMoreLabel.Halign = Align.Start;
-            resultsBox.Append(loadMoreLabel);
-        }
-
-        scrolledWindow.Child = resultsBox;
-
-        // Add scroll event to load more results
-        var scrollAdjustment = scrolledWindow.GetVadjustment();
-        scrollAdjustment.OnValueChanged += async (sender, args) =>
-        {
-            var adj = scrolledWindow.GetVadjustment();
-            var nearBottom = adj.GetValue() + adj.GetPageSize() >= adj.GetUpper() - 100;
-
-            if (nearBottom && _searchHandler.CanLoadMore())
-            {
-                await _searchHandler.LoadMoreResultsAsync();
-            }
-        };
-
+        scrolledWindow.Child = productListView.Widget;
         _contentBox.Append(scrolledWindow);
     }
 
