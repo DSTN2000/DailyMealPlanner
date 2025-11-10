@@ -42,15 +42,10 @@ public class CategoryViewModel : INotifyPropertyChanged
         }
     }
 
-    public List<ProductViewModel> Products => _allProducts;
-
     // Grouped products by subcategory (sorted by key)
     private Dictionary<string, List<ProductViewModel>> _subcategoryGroups = new();
     public IOrderedEnumerable<KeyValuePair<string, List<ProductViewModel>>> SubcategoryGroups =>
         _subcategoryGroups.OrderBy(kvp => kvp.Key);
-
-    // Presentation logic property
-    public bool ShouldUseVirtualization(int productCount) => productCount > 50;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? ProductsLoaded;
@@ -73,7 +68,6 @@ public class CategoryViewModel : INotifyPropertyChanged
         IsLoading = true;
         try
         {
-            Logger.Instance.Information("Loading products for category: {Category}", Name);
             var products = await CatalogService.GetProductsByCategoryAsync(Name);
             _allProducts = products.Select(p => new ProductViewModel(p)).ToList();
 
@@ -81,12 +75,8 @@ public class CategoryViewModel : INotifyPropertyChanged
             _subcategoryGroups = GroupBySubcategories(_allProducts);
 
             IsLoaded = true;
-            OnPropertyChanged(nameof(Products));
             OnPropertyChanged(nameof(SubcategoryGroups));
             ProductsLoaded?.Invoke(this, EventArgs.Empty);
-
-            Logger.Instance.Information("Loaded {Count} products in {SubcategoryCount} subcategories for {Category}",
-                _allProducts.Count, _subcategoryGroups.Count, Name);
         }
         catch (Exception ex)
         {

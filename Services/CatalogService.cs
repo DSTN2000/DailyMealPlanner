@@ -50,11 +50,8 @@ public class CatalogService
         return count;
     }
 
-    public static async Task<List<Product>> GetProductsByCategoryAsync(string category, int limit = -1, int offset = 0)
+    public static async Task<List<Product>> GetProductsByCategoryAsync(string category)
     {
-        Logger.Instance.Information("Querying products for category {Category} (limit: {Limit}, offset: {Offset})",
-            category, limit, offset);
-
         using var connection = new SqliteConnection($"Data Source={dbPath}");
         await connection.OpenAsync();
 
@@ -63,15 +60,9 @@ public class CatalogService
             SELECT id, name, description, type, labels, nutrition_100g
             FROM ""opennutrition_foods.db""
             WHERE type = @category
-            ORDER BY name
-            " + (limit > 0 ? "LIMIT @limit OFFSET @offset" : "");
+            ORDER BY name";
 
         command.Parameters.AddWithValue("@category", category);
-        if (limit > 0)
-        {
-            command.Parameters.AddWithValue("@limit", limit);
-            command.Parameters.AddWithValue("@offset", offset);
-        }
 
         var products = new List<Product>();
         using var reader = await command.ExecuteReaderAsync();
