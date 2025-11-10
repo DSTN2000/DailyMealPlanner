@@ -44,7 +44,7 @@ public class CatalogService
             SELECT COUNT(*)
             FROM ""opennutrition_foods.db""
             WHERE type = @category";
-        command.Parameters.AddWithValue("@category", category);
+                command.Parameters.AddWithValue("@category", category);
 
         var count = Convert.ToInt32(await command.ExecuteScalarAsync());
         return count;

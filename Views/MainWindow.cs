@@ -1,6 +1,7 @@
 namespace Lab4.Views;
 
 using Gtk;
+using Lab4.Services;
 using Lab4.ViewModels;
 using Lab4.Views.Dialogs;
 
@@ -9,6 +10,8 @@ public class MainWindow
     private readonly MainWindowViewModel _viewModel;
     private readonly SearchHandler _searchHandler;
     private readonly ApplicationWindow _window;
+    private readonly XmlExportService _xmlExportService;
+    private readonly XmlImportService _xmlImportService;
     private Box _contentBox = null!;
     private Box _mealPlanBox = null!;
     private DailyMealPlanView? _mealPlanView;
@@ -20,6 +23,9 @@ public class MainWindow
         _window = ApplicationWindow.New(app);
         _window.Title = "Daily Meal Planner";
         _window.SetDefaultSize(900, 600);
+
+        _xmlExportService = new XmlExportService();
+        _xmlImportService = new XmlImportService();
 
         LoadCustomCSS();
         SetupActions();
@@ -387,7 +393,7 @@ public class MainWindow
             }
 
             var mealPlan = _viewModel.MealPlan.GetModel();
-            Services.ExportService.ExportToXml(mealPlan, filePath);
+            _xmlExportService.Export(mealPlan, filePath);
 
             ShowInfoDialog("Export Successful", $"Meal plan exported to:\n{filePath}");
         }
@@ -437,12 +443,12 @@ public class MainWindow
         });
     }
 
-    private void ImportFromFile(string filePath)
+    private async void ImportFromFile(string filePath)
     {
         try
         {
             // Load the meal plan from XML file
-            var loadedPlan = Services.ExportService.ImportFromXml(filePath);
+            var loadedPlan = await _xmlImportService.ImportAsync(filePath);
 
             if (loadedPlan != null)
             {

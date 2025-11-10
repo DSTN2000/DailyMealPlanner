@@ -132,27 +132,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         return products.Select(p => new ProductViewModel(p)).ToList();
     }
 
-    public async Task AddProductToMealPlanAsync(string productName, MealTimeType mealTimeType, double weight)
-    {
-        try
-        {
-            // Search for the product by name
-            var products = await SearchProductsAsync(productName);
-            var productVm = products.FirstOrDefault(p => p.Name == productName);
-
-            if (productVm != null)
-            {
-                MealPlan.AddProduct(productVm, mealTimeType, weight);
-                Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", productName, weight, mealTimeType);
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Error(ex, "Failed to add product to meal plan");
-            throw;
-        }
-    }
-
     public void AddProductToMealTime(ProductViewModel productVm, MealTimeViewModel mealTimeVm, double weight)
     {
         try
