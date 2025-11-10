@@ -230,6 +230,39 @@ public class DailyMealPlanViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
+    /// Refreshes goal-related properties when User nutritional goals change
+    /// </summary>
+    public void RefreshGoals()
+    {
+        // Notify all goal-related properties
+        OnPropertyChanged(nameof(GoalCalories));
+        OnPropertyChanged(nameof(GoalProtein));
+        OnPropertyChanged(nameof(GoalFat));
+        OnPropertyChanged(nameof(GoalCarbohydrates));
+
+        // Notify all progress properties (depend on goals)
+        OnPropertyChanged(nameof(CalorieProgressPercentage));
+        OnPropertyChanged(nameof(CalorieProgressFraction));
+        OnPropertyChanged(nameof(CalorieProgressDisplay));
+        OnPropertyChanged(nameof(CalorieProgressColorClass));
+        OnPropertyChanged(nameof(ProteinProgressPercentage));
+        OnPropertyChanged(nameof(ProteinProgressFraction));
+        OnPropertyChanged(nameof(ProteinProgressDisplay));
+        OnPropertyChanged(nameof(ProteinProgressColorClass));
+        OnPropertyChanged(nameof(FatProgressPercentage));
+        OnPropertyChanged(nameof(FatProgressFraction));
+        OnPropertyChanged(nameof(FatProgressDisplay));
+        OnPropertyChanged(nameof(FatProgressColorClass));
+        OnPropertyChanged(nameof(CarbsProgressPercentage));
+        OnPropertyChanged(nameof(CarbsProgressFraction));
+        OnPropertyChanged(nameof(CarbsProgressDisplay));
+        OnPropertyChanged(nameof(CarbsProgressColorClass));
+
+        Logger.Instance.Information("Refreshed meal plan goals - New daily goals: {Calories} kcal, {Protein}g protein, {Fat}g fat, {Carbs}g carbs",
+            GoalCalories, GoalProtein, GoalFat, GoalCarbohydrates);
+    }
+
+    /// <summary>
     /// Recalculates all nutritional totals (with re-entrancy guard)
     /// </summary>
     private void Recalculate()

@@ -33,7 +33,12 @@ public class DailyMealPlanView
             {
                 RebuildMealTimes();
             }
-            else if (e.PropertyName?.StartsWith("Total") == true)
+            else if (e.PropertyName?.StartsWith("Total") == true ||
+                     e.PropertyName?.StartsWith("Goal") == true ||
+                     e.PropertyName?.StartsWith("Calorie") == true ||
+                     e.PropertyName?.StartsWith("Protein") == true ||
+                     e.PropertyName?.StartsWith("Fat") == true ||
+                     e.PropertyName?.StartsWith("Carbs") == true)
             {
                 RebuildDailyTotals();
             }

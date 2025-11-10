@@ -56,6 +56,9 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public void SaveUserConfiguration()
     {
         ConfigurationService.SaveUserConfig(CurrentUser);
+
+        // Refresh meal plan goals to update progress displays
+        MealPlan.RefreshGoals();
     }
 
     protected virtual void OnPropertyChanged(string propertyName)
