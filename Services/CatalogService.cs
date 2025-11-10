@@ -184,8 +184,6 @@ public class CatalogService
             return new List<Product>();
         }
 
-        Logger.Instance.Information("Searching products with query: {Query}", searchQuery);
-
         using var connection = new SqliteConnection($"Data Source={dbPath}");
         await connection.OpenAsync();
 

@@ -233,7 +233,7 @@ public class MainWindow
             var categoryView = new CategoryView(categoryVm);
             categoryView.ProductClicked += (s, productVm) =>
             {
-                ShowAddProductDialog(productVm.Name);
+                ShowAddProductDialog(productVm);
             };
             categoriesBox.Append(categoryView.Widget);
         }
@@ -242,16 +242,16 @@ public class MainWindow
         _contentBox.Append(scrolledWindow);
     }
 
-    private void ShowAddProductDialog(string productName)
+    private void ShowAddProductDialog(ProductViewModel productVm)
     {
         var mealTimes = _viewModel.MealPlan.MealTimes.ToList();
-        var dialogVm = new AddProductDialogViewModel(productName, mealTimes);
+        var dialogVm = new AddProductDialogViewModel(productVm.Name, mealTimes);
         var dialog = new AddProductDialog(_window, dialogVm);
 
-        dialog.ProductAdded += async (s, viewModel) =>
+        dialog.ProductAdded += (s, viewModel) =>
         {
             var selectedMealTime = viewModel.GetSelectedMealTime();
-            await _viewModel.AddProductToMealTimeAsync(viewModel.ProductName, selectedMealTime, viewModel.Weight);
+            _viewModel.AddProductToMealTime(productVm, selectedMealTime, viewModel.Weight);
             BuildMealPlanUI();
         };
 
@@ -358,9 +358,9 @@ public class MainWindow
 
             productButton.Child = productBox;
 
-            // Handle click
-            var productName = productVm.Name;
-            productButton.OnClicked += (s, e) => ShowAddProductDialog(productName);
+            // Handle click - capture productVm for closure
+            var capturedProductVm = productVm;
+            productButton.OnClicked += (s, e) => ShowAddProductDialog(capturedProductVm);
 
             resultsBox.Append(productButton);
         }

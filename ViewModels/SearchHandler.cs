@@ -12,6 +12,7 @@ public class SearchHandler
     private string _lastSearchQuery = string.Empty;
     private List<ProductViewModel> _currentResults = new();
     private int _loadedResultsCount = 0;
+    private bool _isSearching = false;
 
     public const int ResultsPageSize = 50;
     public const int DebounceDelayMs = 300;
@@ -38,6 +39,12 @@ public class SearchHandler
         if (string.IsNullOrWhiteSpace(query))
         {
             ClearResults();
+            return;
+        }
+
+        // Prevent duplicate searches
+        if (query == _lastSearchQuery)
+        {
             return;
         }
 
@@ -86,13 +93,33 @@ public class SearchHandler
 
     private async Task PerformSearchAsync(string query)
     {
-        _lastSearchQuery = query;
-        _currentResults = await _viewModel.SearchProductsAsync(query);
-        _loadedResultsCount = Math.Min(ResultsPageSize, _currentResults.Count);
+        // Check if this search was already performed (race condition protection)
+        if (query == _lastSearchQuery)
+        {
+            return;
+        }
 
-        // Notify subscribers with first page of results
-        var visibleResults = _currentResults.Take(_loadedResultsCount).ToList();
-        ResultsUpdated?.Invoke(this, visibleResults);
+        // Prevent concurrent searches
+        if (_isSearching)
+        {
+            return;
+        }
+
+        try
+        {
+            _isSearching = true;
+            _lastSearchQuery = query;
+            _currentResults = await _viewModel.SearchProductsAsync(query);
+            _loadedResultsCount = Math.Min(ResultsPageSize, _currentResults.Count);
+
+            // Notify subscribers with first page of results
+            var visibleResults = _currentResults.Take(_loadedResultsCount).ToList();
+            ResultsUpdated?.Invoke(this, visibleResults);
+        }
+        finally
+        {
+            _isSearching = false;
+        }
     }
 
     private void ClearResults()

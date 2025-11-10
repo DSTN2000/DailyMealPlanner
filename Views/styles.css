@@ -291,7 +291,7 @@ progressbar.macro-progress trough progress {
 
 button.destructive-action {
     background-color: alpha(#c01c28, 0.1);
-    color: #c01c28;
+    color: @theme_fg_color;
 }
 
 button.destructive-action:hover {

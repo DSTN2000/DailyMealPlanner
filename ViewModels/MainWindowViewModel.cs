@@ -50,9 +50,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
         NutritionCalculationService.CalculateNutritionalNeeds(userModel);
         CurrentUser.RefreshCalculatedProperties();
 
-        // Initialize meal plan for today
-        var savedPlan = MealPlanService.LoadMealPlan(DateTime.Today);
-        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan(), userModel);
+        // Initialize empty meal plan for today
+        MealPlan = new DailyMealPlanViewModel(new DailyMealPlan(), userModel);
     }
 
     public void SaveUserConfiguration()
@@ -154,6 +153,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
+    public void AddProductToMealTime(ProductViewModel productVm, MealTimeViewModel mealTimeVm, double weight)
+    {
+        try
+        {
+            // Get the underlying product model
+            var product = productVm.GetModel();
+
+            // Add directly to the meal time
+            mealTimeVm.AddItem(product, weight);
+            Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", productVm.Name, weight, mealTimeVm.Name);
+        }
+        catch (Exception ex)
+        {
+            Logger.Instance.Error(ex, "Failed to add product to meal time");
+            throw;
+        }
+    }
+
     public async Task AddProductToMealTimeAsync(string productName, MealTimeViewModel mealTimeVm, double weight)
     {
         try
@@ -164,12 +181,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
 
             if (productVm != null)
             {
-                // Get the underlying product model
-                var product = productVm.GetModel();
-
-                // Add directly to the meal time
-                mealTimeVm.AddItem(product, weight);
-                Logger.Instance.Information("Added {Product} ({Weight}g) to {MealTime}", productName, weight, mealTimeVm.Name);
+                AddProductToMealTime(productVm, mealTimeVm, weight);
             }
         }
         catch (Exception ex)
