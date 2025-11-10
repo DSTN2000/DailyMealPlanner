@@ -9,6 +9,7 @@ public class ProductViewModel
     // View-friendly properties (NO Model exposure!)
     public string Name => _model.Name;
     public string Id => _model.Id;
+    public string Category => _model.Category;
     public List<string> Labels => _model.Labels;
     public double Calories => _model.Calories;
     public double Protein => _model.Protein;

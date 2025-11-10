@@ -10,6 +10,11 @@ public class MainWindow
     private Box _contentBox = null!;
     private Box _mealPlanBox = null!;
     private DailyMealPlanView? _mealPlanView;
+    private System.Timers.Timer? _searchDebounceTimer;
+    private string _lastSearchQuery = string.Empty;
+    private List<ProductViewModel> _currentSearchResults = new();
+    private int _loadedResultsCount = 0;
+    private const int ResultsPageSize = 50;
 
     public MainWindow(Gtk.Application app)
     {
@@ -89,6 +94,10 @@ public class MainWindow
         headerLabel.AddCssClass("title-2");
         headerLabel.Halign = Align.Start;
         leftPanel.Append(headerLabel);
+
+        // Search box
+        var searchBox = CreateSearchBox();
+        leftPanel.Append(searchBox);
 
         // Content area (will be updated after data loads)
         _contentBox = Box.New(Orientation.Vertical, 5);
@@ -232,6 +241,241 @@ public class MainWindow
         // Create the DailyMealPlanView and add it to the container
         _mealPlanView = new DailyMealPlanView(_viewModel.MealPlan);
         _mealPlanBox.Append(_mealPlanView.Widget);
+    }
+
+    private Box CreateSearchBox()
+    {
+        var searchContainer = Box.New(Orientation.Vertical, 5);
+
+        // Search entry
+        var searchEntry = SearchEntry.New();
+        searchEntry.SetPlaceholderText("Search products...");
+        searchEntry.Hexpand = true;
+
+        // Initialize debounce timer (300ms delay)
+        _searchDebounceTimer = new System.Timers.Timer(300)
+        {
+            AutoReset = false
+        };
+        _searchDebounceTimer.Elapsed += (sender, args) =>
+        {
+            var query = searchEntry.GetText();
+
+            // Execute on main thread
+            GLib.Functions.IdleAdd(0, () =>
+            {
+                _ = PerformSearchAsync(query);
+                return false;
+            });
+        };
+
+        // Handle search activation (when user presses Enter)
+        searchEntry.OnActivate += async (sender, args) =>
+        {
+            // Stop debounce timer and search immediately
+            _searchDebounceTimer?.Stop();
+
+            var query = searchEntry.GetText();
+            await PerformSearchAsync(query);
+        };
+
+        // Handle search changed (debounced real-time search)
+        searchEntry.OnSearchChanged += (sender, args) =>
+        {
+            var query = searchEntry.GetText();
+
+            // Stop any previous timer
+            _searchDebounceTimer?.Stop();
+
+            // Only search if query is at least 2 characters
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                // Reset last search query and show categories immediately if search is cleared
+                _lastSearchQuery = string.Empty;
+                UpdateCategoriesView();
+                return;
+            }
+
+            if (query.Length < 2)
+            {
+                return;
+            }
+
+            // Start debounce timer
+            _searchDebounceTimer?.Start();
+        };
+
+        searchContainer.Append(searchEntry);
+        return searchContainer;
+    }
+
+    private async Task PerformSearchAsync(string query)
+    {
+        // Prevent duplicate searches with the same query
+        if (query == _lastSearchQuery)
+        {
+            return;
+        }
+
+        _lastSearchQuery = query;
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            _currentSearchResults.Clear();
+            _loadedResultsCount = 0;
+            UpdateCategoriesView();
+            return;
+        }
+
+        try
+        {
+            // Clear content box
+            while (_contentBox.GetFirstChild() != null)
+            {
+                _contentBox.Remove(_contentBox.GetFirstChild()!);
+            }
+
+            // Show loading
+            var loadingLabel = Label.New("Searching...");
+            _contentBox.Append(loadingLabel);
+
+            // Perform search
+            var results = await _viewModel.SearchProductsAsync(query);
+
+            // Store results for lazy loading
+            _currentSearchResults = results;
+            _loadedResultsCount = 0;
+
+            // Clear loading
+            while (_contentBox.GetFirstChild() != null)
+            {
+                _contentBox.Remove(_contentBox.GetFirstChild()!);
+            }
+
+            // Display results
+            if (results.Count == 0)
+            {
+                var noResultsLabel = Label.New($"No products found for '{query}'");
+                noResultsLabel.AddCssClass("dim-label");
+                _contentBox.Append(noResultsLabel);
+            }
+            else
+            {
+                DisplaySearchResults();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Clear content and show error
+            while (_contentBox.GetFirstChild() != null)
+            {
+                _contentBox.Remove(_contentBox.GetFirstChild()!);
+            }
+
+            var errorLabel = Label.New($"Search failed: {ex.Message}");
+            errorLabel.AddCssClass("error");
+            _contentBox.Append(errorLabel);
+        }
+    }
+
+    private void DisplaySearchResults()
+    {
+        // Create scrolled window for results
+        var scrolledWindow = ScrolledWindow.New();
+        scrolledWindow.SetPolicy(PolicyType.Automatic, PolicyType.Automatic);
+        scrolledWindow.Vexpand = true;
+
+        // Create results box
+        var resultsBox = Box.New(Orientation.Vertical, 5);
+        resultsBox.AddCssClass("panel-content");
+
+        // Add result count
+        var countLabel = Label.New($"Found {_currentSearchResults.Count} products");
+        countLabel.AddCssClass("dim-label");
+        countLabel.Halign = Align.Start;
+        resultsBox.Append(countLabel);
+
+        // Load initial page of results
+        LoadMoreResults(resultsBox);
+
+        scrolledWindow.Child = resultsBox;
+
+        // Add scroll event to detect when user reaches bottom
+        var scrollAdjustment = scrolledWindow.GetVadjustment();
+        scrollAdjustment.OnValueChanged += (sender, args) =>
+        {
+            var adj = scrolledWindow.GetVadjustment();
+            var nearBottom = adj.GetValue() + adj.GetPageSize() >= adj.GetUpper() - 100;
+
+            if (nearBottom && _loadedResultsCount < _currentSearchResults.Count)
+            {
+                LoadMoreResults(resultsBox);
+            }
+        };
+
+        _contentBox.Append(scrolledWindow);
+    }
+
+    private void LoadMoreResults(Box resultsBox)
+    {
+        var itemsToLoad = Math.Min(ResultsPageSize, _currentSearchResults.Count - _loadedResultsCount);
+
+        if (itemsToLoad <= 0)
+        {
+            return;
+        }
+
+        var startIndex = _loadedResultsCount;
+        var endIndex = startIndex + itemsToLoad;
+
+        for (int i = startIndex; i < endIndex; i++)
+        {
+            var productVm = _currentSearchResults[i];
+
+            var productButton = Button.New();
+            productButton.AddCssClass("flat");
+            productButton.Hexpand = true;
+
+            var productBox = Box.New(Orientation.Vertical, 3);
+            productBox.Halign = Align.Start;
+
+            var nameLabel = Label.New(productVm.Name);
+            nameLabel.AddCssClass("product-name");
+            nameLabel.Halign = Align.Start;
+            nameLabel.Wrap = true;
+            productBox.Append(nameLabel);
+
+            var infoLabel = Label.New($"{productVm.CaloriesDisplay} • {productVm.Category}");
+            infoLabel.AddCssClass("dim-label");
+            infoLabel.Halign = Align.Start;
+            productBox.Append(infoLabel);
+
+            productButton.Child = productBox;
+
+            // Handle click
+            var productName = productVm.Name; // Capture for closure
+            productButton.OnClicked += (s, e) => ShowAddProductDialog(productName);
+
+            resultsBox.Append(productButton);
+        }
+
+        _loadedResultsCount += itemsToLoad;
+
+        // Add "Loading more..." indicator if there are more results
+        if (_loadedResultsCount < _currentSearchResults.Count)
+        {
+            var loadingMoreLabel = Label.New($"Showing {_loadedResultsCount} of {_currentSearchResults.Count} results. Scroll down for more...");
+            loadingMoreLabel.AddCssClass("dim-label");
+            loadingMoreLabel.Halign = Align.Start;
+            resultsBox.Append(loadingMoreLabel);
+        }
+        else if (_currentSearchResults.Count > ResultsPageSize)
+        {
+            var allLoadedLabel = Label.New($"All {_currentSearchResults.Count} results loaded");
+            allLoadedLabel.AddCssClass("dim-label");
+            allLoadedLabel.Halign = Align.Start;
+            resultsBox.Append(allLoadedLabel);
+        }
     }
 
 }

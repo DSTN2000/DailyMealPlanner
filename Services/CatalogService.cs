@@ -177,7 +177,7 @@ public class CatalogService
         return null;
     }
 
-    public static async Task<List<Product>> SearchProductsAsync(string searchQuery, int limit = 100)
+    public static async Task<List<Product>> SearchProductsAsync(string searchQuery)
     {
         if (string.IsNullOrWhiteSpace(searchQuery))
         {
@@ -194,11 +194,9 @@ public class CatalogService
             SELECT id, name, description, type, labels, nutrition_100g
             FROM ""opennutrition_foods.db""
             WHERE name LIKE @searchQuery OR description LIKE @searchQuery
-            ORDER BY name
-            LIMIT @limit";
+            ORDER BY name";
 
         command.Parameters.AddWithValue("@searchQuery", $"%{searchQuery}%");
-        command.Parameters.AddWithValue("@limit", limit);
 
         var products = new List<Product>();
         using var reader = await command.ExecuteReaderAsync();
