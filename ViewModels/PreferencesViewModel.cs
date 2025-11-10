@@ -6,18 +6,18 @@ using Lab4.Services;
 
 public class PreferencesViewModel : INotifyPropertyChanged
 {
-    private readonly User _user;
+    private readonly UserViewModel _userViewModel;
     private readonly Action _onConfigurationSaved;
 
-    // Wrapped User properties - NO direct Model exposure
+    // Wrapped UserViewModel properties - NO direct Model exposure
     public double Weight
     {
-        get => _user.Weight;
+        get => _userViewModel.Weight;
         set
         {
-            if (_user.Weight != value)
+            if (_userViewModel.Weight != value)
             {
-                _user.Weight = value;
+                _userViewModel.Weight = value;
                 OnPropertyChanged(nameof(Weight));
                 OnPropertyChanged(nameof(WeightText));
             }
@@ -26,12 +26,12 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public double Height
     {
-        get => _user.Height;
+        get => _userViewModel.Height;
         set
         {
-            if (_user.Height != value)
+            if (_userViewModel.Height != value)
             {
-                _user.Height = value;
+                _userViewModel.Height = value;
                 OnPropertyChanged(nameof(Height));
                 OnPropertyChanged(nameof(HeightText));
             }
@@ -40,12 +40,12 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public double Age
     {
-        get => _user.Age;
+        get => _userViewModel.Age;
         set
         {
-            if (_user.Age != value)
+            if (_userViewModel.Age != value)
             {
-                _user.Age = value;
+                _userViewModel.Age = value;
                 OnPropertyChanged(nameof(Age));
                 OnPropertyChanged(nameof(AgeText));
             }
@@ -54,12 +54,12 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public int ActivityLevelIndex
     {
-        get => (int)_user.ActivityLevel;
+        get => (int)_userViewModel.ActivityLevel;
         set
         {
-            if ((int)_user.ActivityLevel != value)
+            if ((int)_userViewModel.ActivityLevel != value)
             {
-                _user.ActivityLevel = (ActivityLevel)value;
+                _userViewModel.ActivityLevel = (ActivityLevel)value;
                 OnPropertyChanged(nameof(ActivityLevelIndex));
             }
         }
@@ -85,12 +85,12 @@ public class PreferencesViewModel : INotifyPropertyChanged
     }
 
     // Calculated values (read-only)
-    public double DailyCalories => _user.DailyCalories;
-    public double DailyProtein => _user.DailyProtein;
-    public double DailyFat => _user.DailyFat;
-    public double DailyCarbohydrates => _user.DailyCarbohydrates;
-    public double BMI => _user.BMI;
-    public double ARM => _user.ARM;
+    public double DailyCalories => _userViewModel.DailyCalories;
+    public double DailyProtein => _userViewModel.DailyProtein;
+    public double DailyFat => _userViewModel.DailyFat;
+    public double DailyCarbohydrates => _userViewModel.DailyCarbohydrates;
+    public double BMI => _userViewModel.BMI;
+    public double ARM => _userViewModel.ARM;
 
     // Display properties
     public string DailyCaloriesDisplay => $"{DailyCalories:F0} kcal";
@@ -102,9 +102,9 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public PreferencesViewModel(User user, Action onConfigurationSaved)
+    public PreferencesViewModel(UserViewModel userViewModel, Action onConfigurationSaved)
     {
-        _user = user ?? throw new ArgumentNullException(nameof(user));
+        _userViewModel = userViewModel ?? throw new ArgumentNullException(nameof(userViewModel));
         _onConfigurationSaved = onConfigurationSaved;
         UpdateCalculations();
     }
@@ -135,7 +135,9 @@ public class PreferencesViewModel : INotifyPropertyChanged
 
     public void UpdateCalculations()
     {
-        NutritionCalculationService.CalculateNutritionalNeeds(_user);
+        var userModel = _userViewModel.GetModel();
+        NutritionCalculationService.CalculateNutritionalNeeds(userModel);
+        _userViewModel.RefreshCalculatedProperties();
 
         // Notify all calculated properties
         OnPropertyChanged(nameof(DailyCalories));
@@ -143,11 +145,13 @@ public class PreferencesViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(DailyFat));
         OnPropertyChanged(nameof(DailyCarbohydrates));
         OnPropertyChanged(nameof(BMI));
+        OnPropertyChanged(nameof(ARM));
         OnPropertyChanged(nameof(DailyCaloriesDisplay));
         OnPropertyChanged(nameof(DailyProteinDisplay));
         OnPropertyChanged(nameof(DailyFatDisplay));
         OnPropertyChanged(nameof(DailyCarbsDisplay));
         OnPropertyChanged(nameof(BMIDisplay));
+        OnPropertyChanged(nameof(ARMDisplay));
     }
 
     // Preview calculations without saving (for real-time feedback)

@@ -2,6 +2,7 @@ namespace Lab4.Views;
 
 using Gtk;
 using Lab4.ViewModels;
+using Lab4.Views.Dialogs;
 
 /// <summary>
 /// View for a meal time section (e.g., Breakfast, Lunch, Dinner)
@@ -132,73 +133,17 @@ public class MealTimeView
 
     private void OnRenameClicked(Button sender, EventArgs args)
     {
-        var dialog = new Window();
-        dialog.SetTitle("Rename Meal Time");
-        dialog.SetDefaultSize(300, 150);
-        dialog.SetModal(true);
+        // Get parent window for dialog
+        var parentWindow = (Window?)_container.GetRoot();
+        if (parentWindow == null) return;
 
-        var contentBox = Box.New(Orientation.Vertical, 10);
-        contentBox.AddCssClass("dialog-content");
-
-        var label = Label.New("New name:");
-        label.Halign = Align.Start;
-        contentBox.Append(label);
-
-        var entry = Entry.New();
-        entry.SetText(_viewModel.Name);
-        contentBox.Append(entry);
-
-        var buttonBox = Box.New(Orientation.Horizontal, 10);
-        buttonBox.Halign = Align.End;
-        buttonBox.AddCssClass("dialog-button-box");
-
-        var cancelButton = Button.NewWithLabel("Cancel");
-        cancelButton.OnClicked += (s, e) => dialog.Close();
-        buttonBox.Append(cancelButton);
-
-        var okButton = Button.NewWithLabel("OK");
-        okButton.AddCssClass("suggested-action");
-        okButton.OnClicked += (s, e) =>
-        {
-            var newName = entry.GetText();
-            if (!string.IsNullOrWhiteSpace(newName))
-            {
-                // Validate uniqueness before renaming
-                var isUnique = ValidateNameUnique?.Invoke(newName, _viewModel) ?? true;
-                if (!isUnique)
-                {
-                    // Show error dialog for duplicate name
-                    var errorDialog = new Window();
-                    errorDialog.SetTitle("Error");
-                    errorDialog.SetDefaultSize(300, 100);
-                    errorDialog.SetModal(true);
-
-                    var errorBox = Box.New(Orientation.Vertical, 10);
-                    errorBox.AddCssClass("dialog-content");
-
-                    var errorLabel = Label.New($"A meal time with the name '{newName}' already exists.\nPlease choose a different name.");
-                    errorLabel.Halign = Align.Center;
-                    errorBox.Append(errorLabel);
-
-                    var errorOkButton = Button.NewWithLabel("OK");
-                    errorOkButton.Halign = Align.Center;
-                    errorOkButton.OnClicked += (s2, e2) => errorDialog.Close();
-                    errorBox.Append(errorOkButton);
-
-                    errorDialog.SetChild(errorBox);
-                    errorDialog.Show();
-                    return;
-                }
-
-                _viewModel.Name = newName;
-                dialog.Close();
-            }
-        };
-        buttonBox.Append(okButton);
-
-        contentBox.Append(buttonBox);
-        dialog.SetChild(contentBox);
-        dialog.Show();
+        InputDialog.ShowRenameDialog(
+            parentWindow,
+            "Rename Meal Time",
+            _viewModel.Name,
+            (newName) => ValidateNameUnique?.Invoke(newName, _viewModel) ?? true,
+            (newName) => _viewModel.Name = newName
+        );
     }
 
     private void OnRemoveMealTimeClicked(Button sender, EventArgs args)

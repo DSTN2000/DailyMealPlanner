@@ -29,12 +29,12 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public User CurrentUser { get; private set; }
+    public UserViewModel CurrentUser { get; private set; }
     public DailyMealPlanViewModel MealPlan { get; private set; }
 
     public void UpdateMealPlan(DailyMealPlan newPlan)
     {
-        MealPlan = new DailyMealPlanViewModel(newPlan, CurrentUser);
+        MealPlan = new DailyMealPlanViewModel(newPlan, CurrentUser.GetModel());
         OnPropertyChanged(nameof(MealPlan));
     }
 
@@ -43,19 +43,24 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public MainWindowViewModel()
     {
         // Load user config from file, or create new if not exists
-        CurrentUser = ConfigurationService.LoadUserConfig() ?? new User();
+        var userModel = ConfigurationService.LoadUserConfig() ?? new User();
+        CurrentUser = new UserViewModel(userModel);
 
         // Calculate nutritional needs on startup
-        NutritionCalculationService.CalculateNutritionalNeeds(CurrentUser);
+        NutritionCalculationService.CalculateNutritionalNeeds(userModel);
+        CurrentUser.RefreshCalculatedProperties();
 
         // Initialize meal plan for today
         var savedPlan = MealPlanService.LoadMealPlan(DateTime.Today);
-        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan(), CurrentUser);
+        MealPlan = new DailyMealPlanViewModel(savedPlan ?? new DailyMealPlan(), userModel);
     }
 
     public void SaveUserConfiguration()
     {
-        ConfigurationService.SaveUserConfig(CurrentUser);
+        var userModel = CurrentUser.GetModel();
+        NutritionCalculationService.CalculateNutritionalNeeds(userModel);
+        CurrentUser.RefreshCalculatedProperties();
+        ConfigurationService.SaveUserConfig(userModel);
 
         // Refresh meal plan goals to update progress displays
         MealPlan.RefreshGoals();
@@ -106,7 +111,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             var plan = MealPlanService.LoadMealPlan(date);
             if (plan != null)
             {
-                MealPlan = new DailyMealPlanViewModel(plan, CurrentUser);
+                MealPlan = new DailyMealPlanViewModel(plan, CurrentUser.GetModel());
                 OnPropertyChanged(nameof(MealPlan));
             }
         }

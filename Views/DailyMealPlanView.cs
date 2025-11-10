@@ -2,6 +2,7 @@ namespace Lab4.Views;
 
 using Gtk;
 using Lab4.ViewModels;
+using Lab4.Views.Dialogs;
 
 /// <summary>
 /// View for the daily meal plan (shows all meal times with progress card)
@@ -258,69 +259,18 @@ public class DailyMealPlanView
 
     private void OnAddMealTimeClicked(Button sender, EventArgs args)
     {
-        var dialog = new Window();
-        dialog.SetTitle("Add Custom Meal Time");
-        dialog.SetDefaultSize(300, 150);
-        dialog.SetModal(true);
+        // Get parent window for dialog
+        var parentWindow = (Window?)_container.GetRoot();
+        if (parentWindow == null) return;
 
-        var contentBox = Box.New(Orientation.Vertical, 10);
-        contentBox.AddCssClass("dialog-content");
-
-        var label = Label.New("Meal time name:");
-        label.Halign = Align.Start;
-        contentBox.Append(label);
-
-        var entry = Entry.New();
-        entry.SetPlaceholderText("e.g., Snack, Second Breakfast");
-        contentBox.Append(entry);
-
-        var buttonBox = Box.New(Orientation.Horizontal, 10);
-        buttonBox.Halign = Align.End;
-        buttonBox.AddCssClass("dialog-button-box");
-
-        var cancelButton = Button.NewWithLabel("Cancel");
-        cancelButton.OnClicked += (s, e) => dialog.Close();
-        buttonBox.Append(cancelButton);
-
-        var okButton = Button.NewWithLabel("Add");
-        okButton.AddCssClass("suggested-action");
-        okButton.OnClicked += (s, e) =>
-        {
-            var name = entry.GetText();
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                if (!_viewModel.AddCustomMealTime(name))
-                {
-                    // Show error dialog for duplicate name
-                    var errorDialog = new Window();
-                    errorDialog.SetTitle("Error");
-                    errorDialog.SetDefaultSize(300, 100);
-                    errorDialog.SetModal(true);
-
-                    var errorBox = Box.New(Orientation.Vertical, 10);
-                    errorBox.AddCssClass("dialog-content");
-
-                    var errorLabel = Label.New($"A meal time with the name '{name}' already exists.\nPlease choose a different name.");
-                    errorLabel.Halign = Align.Center;
-                    errorBox.Append(errorLabel);
-
-                    var errorOkButton = Button.NewWithLabel("OK");
-                    errorOkButton.Halign = Align.Center;
-                    errorOkButton.OnClicked += (s2, e2) => errorDialog.Close();
-                    errorBox.Append(errorOkButton);
-
-                    errorDialog.SetChild(errorBox);
-                    errorDialog.Show();
-                    return;
-                }
-                dialog.Close();
-            }
-        };
-        buttonBox.Append(okButton);
-
-        contentBox.Append(buttonBox);
-        dialog.SetChild(contentBox);
-        dialog.Show();
+        InputDialog.ShowAddDialog(
+            parentWindow,
+            "Add Custom Meal Time",
+            "Meal time name:",
+            "e.g., Snack, Second Breakfast",
+            (name) => _viewModel.IsNameUnique(name),
+            (name) => _viewModel.AddCustomMealTime(name)
+        );
     }
 
     private void RebuildDailyTotals()

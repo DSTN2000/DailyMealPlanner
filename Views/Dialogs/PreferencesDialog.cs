@@ -1,4 +1,4 @@
-namespace Lab4.Views;
+namespace Lab4.Views.Dialogs;
 
 using Gtk;
 using Lab4.ViewModels;
