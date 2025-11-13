@@ -90,36 +90,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-
-    public void SaveMealPlan()
-    {
-        try
-        {
-            MealPlanService.SaveMealPlan(MealPlan.GetModel());
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Error(ex, "Failed to save meal plan");
-        }
-    }
-
-    public void LoadMealPlan(DateTime date)
-    {
-        try
-        {
-            var plan = MealPlanService.LoadMealPlan(date);
-            if (plan != null)
-            {
-                MealPlan = new DailyMealPlanViewModel(plan, CurrentUser.GetModel());
-                OnPropertyChanged(nameof(MealPlan));
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.Instance.Error(ex, "Failed to load meal plan");
-        }
-    }
-
     public async Task<List<ProductViewModel>> SearchProductsAsync(string searchQuery)
     {
         if (string.IsNullOrWhiteSpace(searchQuery))
